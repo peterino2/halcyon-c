@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define _CRT_SECURE_NO_WARNINGS
 // =================== my c helpers ==============
@@ -97,7 +98,7 @@ void errorPrint(errc code, const char* C, const char* F, int L)
 
 // These are the only two functions I'm going to support in my allocator interface.
 struct allocator{
-    void* (*malloc_fn) (usize);
+    void* (*malloc_fn) (unsigned long long);
     void (*free_fn) (void*);
 };
 
