@@ -1,4 +1,3 @@
-#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -18,6 +17,9 @@ typedef int errc;
 #define ERR_UNABLE_TO_OPEN_FILE 2000
 #define ERR_FILE_SEEK_ERROR 2001
 
+// assertions
+#define ERR_ASSERTION_FAILED 3000
+
 const char* errcToString(errc code)
 {
     switch(code)
@@ -34,6 +36,8 @@ const char* errcToString(errc code)
             return "Unable to open file";
         case ERR_FILE_SEEK_ERROR:
             return "File Seek error";
+        case ERR_ASSERTION_FAILED:
+            return "Assertion failed";
         default: 
             break;
     }
@@ -69,7 +73,12 @@ typedef unsigned long long usize;
 } \
 
 #define ok return ERR_OK;
-#define herror(X) do{ gErrorCatch = X; errorPrint(gErrorCatch, #X, __FILE__, __LINE__); return gErrorCatch; }while(0)
+#define herror(X) do{ \
+    gErrorCatch = X;\
+    errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
+    return gErrorCatch; }while(0)
+
+#define assert(X) if(!(X)) {herror(ERR_ASSERTION_FAILED); }
 
 errc gErrorCatch;
 bool gErrorFirst;
@@ -162,6 +171,27 @@ struct hstr{
 };
 typedef struct hstr hstr;
 
+bool hstr_match(const hstr* left, const hstr* right)
+{
+    if(left->len != right->len)
+        return false;
+
+    const char* r = left->buffer;
+    const char* r2 = right->buffer;
+    const char* rEnd = left->buffer + left->len;
+
+    while(r < rEnd)
+    {
+        if(*r != *r2)
+            return false;
+
+        r2++;
+        r++;
+    }
+
+    return true;
+}
+
 errc loadFile(hstr* out, const hstr* filePath)
 {
     errc error_code = ERR_OK; 
@@ -215,6 +245,20 @@ exitCloseFile:
     ok;
 }
 
+// Do not count the null terminator as part of the length
+#define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1} 
+
+void hstr_free(hstr* str) 
+{
+    if(str->len == 0)
+    {
+        return;
+    }
+    hfree(str->buffer);
+    str->len = 0;
+    str->buffer = NULL;
+}
+
 // try to convert a given binary buffer into equivalent utf8 code points
 // also converts \r\n into \n
 //
@@ -250,23 +294,9 @@ errc decodeUtf8(const hstr* istr, hstr* ostr)
 
     ostr->len = w - ostr->buffer;
 
-    herror(ERR_UNKNOWN);
-
     ok;
 }
 
-#define HSTR(X) {(char*) X, sizeof(X)/sizeof(char)}
-
-void hstr_free(hstr* str) 
-{
-    if(str->len == 0)
-    {
-        return;
-    }
-    hfree(str->buffer);
-    str->len = 0;
-    str->buffer = NULL;
-}
 
 errc loadAndDecodeFromFile(hstr* out, const hstr* filePath)
 {
@@ -275,6 +305,219 @@ errc loadAndDecodeFromFile(hstr* out, const hstr* filePath)
     try(decodeUtf8(&file, out));
 
     hstr_free(&file);
+    ok;
+}
+
+// ============= tokenizer ==================
+
+struct token {
+    i32 tokenType;
+    hstr tokenView;
+    hstr fileName;
+    i32 lineNumber;
+};
+
+struct tokenStream {
+    hstr source;
+    struct token* tokens;
+    i32 len;
+    i32 capacity;
+};
+
+struct tokenizer {
+    struct tokenStream* ts;
+    i32 state;
+    hstr view;
+};
+
+errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
+{
+    ts->len = 0;
+    // I'm estimating an average of 5 tokens every 80 characters.
+    // Then doubling that. we can be more conservative but memory feels cheap these days.
+    
+    ts->capacity = ((source_length_hint / 80) + 1) * 5 * 2;
+    halloc(&ts->tokens, ts->capacity * sizeof(struct tokenStream));
+
+    ok;
+}
+
+errc ts_resize(struct tokenStream* ts)
+{
+    struct token* oldTokens = ts->tokens;
+    usize oldCapacity = ts->capacity;
+
+    // resize the array
+    ts->capacity *= 2;
+    try(halloc(&ts->tokens, ts->capacity * sizeof(struct tokenStream)));
+
+    // copy over data
+    memcpy(ts->tokens, oldTokens, oldCapacity * sizeof(struct tokenStream));
+    
+    // free old array
+    hfree(oldTokens);
+
+    ok;
+}
+
+errc ts_push(struct tokenStream* ts, struct token* tok)
+{
+    if(ts->len + 1 > ts->capacity)
+    {
+        try(ts_resize(ts));
+    }
+
+    *(ts->tokens + ts->len) = *tok;
+    ts->len += 1;
+
+    ok;
+}
+
+#define TOK_MODE_ERROR -1
+#define TOK_MODE_DEFAULT 0
+#define TOK_MODE_STORY 1
+#define TOK_MODE_LABEL 2
+
+enum tokenType{
+    NOT_EQUIV,
+    EQUIV,
+    LESS_EQ,
+    GREATER_EQ,
+    L_SQBRACK,
+    R_SQBRACK,
+    AT,
+    L_ANGLE,
+    R_ANGLE,
+    COLON,
+    HL_PAREN,
+    R_PAREN,
+    DOT,
+    SPEAKERSIGN,
+    SPACE,
+    NEWLINE,
+    CARRIAGE_RETURN,
+    TAB,
+    EXCLAMATION,
+    EQUALS,
+    L_BRACE,
+    R_BRACE,
+    HASHTAG,
+    PLUS,
+    MINUS,
+    COMMA,
+    SEMICOLON,
+    AMPERSAND,
+    DOUBLE_QUOTE,
+    LABEL,
+    STORY_TEXT,
+    COMMENT
+};
+
+static const char* tokenTypeStrings[] = {
+    "NOT_EQUIV",
+    "EQUIV",
+    "LESS_EQ",
+    "GREATER_EQ",
+    "L_SQBRACK",
+    "R_SQBRACK",
+    "AT",
+    "L_ANGLE",
+    "R_ANGLE",
+    "COLON",
+    "L_PAREN",
+    "R_PAREN",
+    "DOT",
+    "SPEAKERSIGN",
+    "SPACE",
+    "NEWLINE",
+    "CARRIAGE_RETURN",
+    "TAB",
+    "EXCLAMATION",
+    "EQUALS",
+    "L_BRACE",
+    "R_BRACE",
+    "HASHTAG",
+    "PLUS",
+    "MINUS",
+    "COMMA",
+    "SEMICOLON",
+    "AMPERSAND",
+    "DOUBLE_QUOTE",
+
+    "LABEL",
+    "STORY_TEXT",
+    "COMMENT"
+};
+
+#define arrayCount(X) sizeof(X) / sizeof(X[0])
+
+static const hstr Terminals[] = {
+    HSTR("!="), // NOT_EQUIV
+    HSTR("=="), // EQUIV
+    HSTR("<="), // LESS_EQ
+    HSTR(">="), // GREATER_EQ
+    HSTR("["),  // L_SQBRACK
+    HSTR("]"),  // R_SQBRACK
+    HSTR("@"),  // AT
+    HSTR("<"),  // L_ANGLE
+    HSTR(">"),  // R_ANGLE
+    HSTR(":"),  // COLON
+    HSTR("("),  // L_PAREN,
+    HSTR(")"),  // R_PAREN,
+    HSTR("."),  // DOT,
+    HSTR("$"),  // SPEAKERSIGN,
+    HSTR(" "),  // SPACE,
+    HSTR("\n"), // NEWLINE,
+    HSTR("\r"), // CARRIAGE_RETURN, - this one is an error
+    HSTR("\t"), // TAB,
+    HSTR("!"),  // EXCLAMATION,
+    HSTR("="),  // EQUALS,
+    HSTR("{"),  // L_BRACE,
+    HSTR("}"),  // R_BRACE,
+    HSTR("#"),  // HASHTAG,
+    HSTR("+"),  // PLUS,
+    HSTR("-"),  // MINUS,
+    HSTR(","),  // COMMA,
+    HSTR(";"),  // SEMICOLON,
+    HSTR("&"),  // AMPERSAND,
+    HSTR("\""), // DOUBLE_QUOTE,
+};
+
+errc tokenize(const hstr* source, struct tokenStream* ts)
+{
+    try(ts_initialize(ts, source->len));
+    ts->source = *source;
+
+    // initialize a pointer and start walking through the source
+    const char* r = source->buffer;
+    const char* rEnd = source->buffer + source->len;
+
+    struct tokenizer tokenizer = {ts, TOK_MODE_DEFAULT, {ts->source.buffer, 0}};
+
+    while(r < rEnd)
+    {
+        // rules for what is a token.
+        // - comments
+        // - story text
+        // - terminals
+
+        tokenizer.view.len += 1;
+        for(i32 i = 0; i < arrayCount(Terminals); i += 1)
+        {
+            if(hstr_match(&tokenizer.view, &Terminals[i]))
+            {
+                struct token newToken = {i, tokenizer.view, HSTR("no file"), 0};
+                tokenizer.view.buffer = (char*) (r + 1);
+                tokenizer.view.len = 0;
+
+                try(ts_push(ts, &newToken));
+
+                break;
+            }
+        }
+        r += 1;
+    }
+
     ok;
 }
 
@@ -289,6 +532,24 @@ errc loading_file_test()
     ok;
 }
 
+errc tokenizer_test() 
+{
+    hstr filePath = HSTR("testfiles/terminals.halc");
+
+    hstr decoded;
+    try(loadAndDecodeFromFile(&decoded, &filePath));
+
+    struct tokenStream ts;
+    try(tokenize(&decoded, &ts));
+
+    assert(ts.len > 0);
+    assert(ts.tokens[0].tokenType == L_SQBRACK);
+    assert(ts.tokens[1].tokenType == R_SQBRACK);
+
+    ok;
+}
+
+
 // ====================== test registry ======================
 struct testEntry {
     const char* testName;
@@ -297,6 +558,7 @@ struct testEntry {
 
 struct testEntry gTests[] = {
     {"simple file loading test", loading_file_test},
+    {"simple tokenizer test", tokenizer_test},
 };
 
 errc setupTestHarness() 
