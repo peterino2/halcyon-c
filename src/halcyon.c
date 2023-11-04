@@ -511,7 +511,6 @@ errc tokenize(const hstr* source, struct tokenStream* ts)
                 tokenizer.view.len = 0;
 
                 try(ts_push(ts, &newToken));
-
                 break;
             }
         }
