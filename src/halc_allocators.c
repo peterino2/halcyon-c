@@ -83,3 +83,7 @@ void hfree(void* ptr)
 #endif
     gDefaultAllocator.free_fn(ptr);
 }
+
+void printMemoryStatistics()
+{
+}

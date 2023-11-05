@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "halc_tokenizer.h"
 #include "halc_allocators.h"
@@ -11,7 +12,7 @@ errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
     // I'm estimating an average of 5 tokens every 80 characters.
     // Then doubling that. we can be more conservative but memory feels cheap these days.
     
-    ts->capacity = ((source_length_hint / 80) + 1) * 5 * 2;
+    ts->capacity = ((source_length_hint / 40) + 1) * 8 * 2;
     halloc(&ts->tokens, ts->capacity * sizeof(struct tokenStream));
 
     ok;
@@ -25,25 +26,37 @@ errc ts_resize(struct tokenStream* ts)
     // resize the array
     ts->capacity *= 2;
     trackAllocs("resize event");
-    try(halloc(&ts->tokens, ts->capacity * sizeof(struct tokenStream)));
+    struct token* newTokens;
+    try(halloc(&newTokens, ts->capacity * sizeof(struct tokenStream)));
 
     // copy over data
-    memcpy(ts->tokens, oldTokens, oldCapacity * sizeof(struct tokenStream));
+    for (i32 i = 0; i < oldCapacity; i += 1)
+    {
+        newTokens[i] = oldTokens[i];
+    }
     
     // free old array
     hfree(oldTokens);
+
+    ts->tokens = newTokens;
 
     ok;
 }
 
 errc ts_push(struct tokenStream* ts, struct token* tok)
 {
-    if(ts->len + 1 > ts->capacity)
+    if(ts->len>= ts->capacity)
     {
+        fprintf(stderr, "resizing!\n");
         try(ts_resize(ts));
     }
 
-    *(ts->tokens + ts->len) = *tok;
+    fprintf(stderr, "writing to: offset=%d %p size=%d capacity=%ld\n", ts->len, ts->tokens + ts->len, sizeof(*tok), ts->capacity);
+
+    assert(((usize)(ts->len + ts->tokens) % 8) == 0);
+    assert(ts->len < ts->capacity);
+
+    ts->tokens[ts->len] = *tok;
     ts->len += 1;
 
     ok;
@@ -79,6 +92,7 @@ const char* tokenTypeStrings[] = {
     "SEMICOLON",
     "AMPERSAND",
     "DOUBLE_QUOTE",
+    "QUOTE",
 
     "LABEL",
     "STORY_TEXT",
@@ -115,6 +129,7 @@ const hstr Terminals[] = {
     HSTR(";"),  // SEMICOLON,
     HSTR("&"),  // AMPERSAND,
     HSTR("\""), // DOUBLE_QUOTE,
+    HSTR("'"), // DOUBLE_QUOTE,
 };
 
 errc tokenize(const hstr* source, struct tokenStream* ts)

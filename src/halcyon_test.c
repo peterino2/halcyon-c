@@ -22,20 +22,35 @@ errc loading_file_test()
 errc tokenizer_test() 
 {
     fprintf(stderr, "\n");
-    hstr filePath = HSTR("testfiles/terminals.halc");
-
-    hstr decoded;
-    try(loadAndDecodeFromFile(&decoded, &filePath));
-
+    hstr testString = HSTR("[]()&<>!= = # \"'\n");
+    i32 tokens[] = {
+        L_SQBRACK,
+        R_SQBRACK,
+        L_PAREN,
+        R_PAREN,
+        AMPERSAND,
+        L_ANGLE,
+        R_ANGLE,
+        NOT_EQUIV,
+        SPACE,
+        EQUALS,
+        SPACE,
+        HASHTAG,
+        SPACE,
+        DOUBLE_QUOTE,
+        QUOTE,
+        NEWLINE
+    };
     struct tokenStream ts;
-    try(tokenize(&decoded, &ts));
+    try(tokenize(&testString, &ts));
 
     assert(ts.len > 0);
-    assert(ts.tokens[0].tokenType == L_SQBRACK);
-    assert(ts.tokens[1].tokenType == R_SQBRACK);
+    for(i32 i = 0; i < ts.len; i += 1)
+    {
+        assert(ts.tokens[i].tokenType == tokens[i]);
+    }
 
     ts_free(&ts);
-    hstr_free(&decoded);
     ok;
 }
 
