@@ -127,6 +127,19 @@ const hstr Terminals[] = {
     HSTR("'"), // DOUBLE_QUOTE,
 };
 
+b8 isAlphaNumeric(char ch)
+{
+    if ((ch >= 'a' && ch <= 'z') || 
+        (ch >= 'A' && ch <= 'Z') ||
+        (ch >= '0' && ch <= '9') ||
+        (ch == '_')
+        )
+    {
+        return TRUE;
+    }
+    return FALSE;
+}
+
 errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 {
     trackAllocs("ts_initialize");
@@ -139,12 +152,13 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 
     struct tokenizer tokenizer = {ts, TOK_MODE_DEFAULT};
     i32 lineNumber = 1;
+    b8 shouldBreak = FALSE;
 
     trackAllocs("ts_tokenize");
     while(r < rEnd)
     {
-        // check for comments:
-        if(*r == '#')
+        // comment clause
+        if(*r == '#' && !shouldBreak)
         {
             const char* c = r;
             while(*c != '\n' && c < rEnd) c++;
@@ -153,12 +167,37 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 
             struct token newToken = {COMMENT, view, *filename, lineNumber};
             try(ts_push(ts, &newToken));
-
-            lineNumber += 1;
-            r += view.len;
+            r += view.len - 1;
+            shouldBreak = TRUE;
         }
-        else {
-            for(i32 i = 0; i < arrayCount(Terminals); i += 1)
+
+        if ((*r == ':' || *r == '>' ) && !shouldBreak)
+        {
+            if (*r == ':')
+            {
+                struct token nt = { COLON, {(char*)r, 1}, *filename, lineNumber };
+                try(ts_push(ts, &nt));
+            }
+            if (*r == '>')
+            {
+                struct token nt = { R_ANGLE, {(char*)r, 1}, *filename, lineNumber };
+                try(ts_push(ts, &nt));
+            }
+            r += 1;
+
+            const char* c = r;
+            while (*c != '\n' && *c != '#' && c < rEnd) c++;
+
+            hstr view = { (char*) r, c - r};
+            struct token newToken = { STORY_TEXT, view, *filename, lineNumber };
+            try(ts_push(ts, &newToken));
+            r += view.len - 1;
+            shouldBreak = TRUE;
+        }
+
+        // terminals clause
+        if (!shouldBreak) {
+            for (i32 i = 0; i < arrayCount(Terminals); i += 1)
             {
                 // build a view based on the current character and look ahead.
                 hstr view = { (char*) r, Terminals[i].len };
@@ -171,7 +210,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 
                 if(hstr_match(&view, &Terminals[i]))
                 {
-                    struct token newToken = {i, view, *filename, 0};
+                    struct token newToken = {i, view, *filename, lineNumber};
                     r += Terminals[i].len - 1;
 
                     try(ts_push(ts, &newToken));
@@ -180,15 +219,33 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
                     {
                         lineNumber += 1;
                     }
+                    shouldBreak = TRUE;
                     break;
                 }
             }
         }
+
+        // try to build a label instead
+        if (!shouldBreak)
+        {
+            const char* c = r;
+            while (c < rEnd && isAlphaNumeric(*c)) c++;
+
+            hstr view = { (char*) r, c - r};
+            struct token newToken = { LABEL, view, *filename, lineNumber };
+
+            try(ts_push(ts, &newToken));
+            r += view.len - 1;
+            shouldBreak = TRUE;
+        }
+
         r += 1;
+        shouldBreak = FALSE;
     }
 
     ok;
 }
+
 
 void ts_free(struct tokenStream* ts)
 {

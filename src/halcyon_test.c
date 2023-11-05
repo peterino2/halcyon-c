@@ -9,7 +9,7 @@
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
 
-errc commentTest() 
+errc comment_test() 
 {
     fprintf(stderr, "\n");
     hstr testString = HSTR("    # this is a comment\"'\n # this is another comment");
@@ -19,11 +19,20 @@ errc commentTest()
         SPACE,
         SPACE,
         SPACE,
-
         COMMENT,
         NEWLINE,
         SPACE,
         COMMENT,
+    };
+    i32 lineNumbers[] = {
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
     };
     struct tokenStream ts;
     try(tokenize(&ts, &testString, &testFileName));
@@ -32,6 +41,7 @@ errc commentTest()
     for(i32 i = 0; i < ts.len; i += 1)
     {
         assert(ts.tokens[i].tokenType == tokens[i]);
+        assert(ts.tokens[i].lineNumber == lineNumbers[i]);
     }
 
     ts_free(&ts);
@@ -51,7 +61,7 @@ errc loading_file_test()
 errc tokenizer_test() 
 {
     fprintf(stderr, "\n");
-    hstr testString = HSTR("[]()&<>!= = # \"'\n");
+    hstr testString = HSTR("[]()&<!= = # \"'\n");
     hstr testFileName = HSTR("no file");
     i32 tokens[] = {
         L_SQBRACK,
@@ -60,15 +70,11 @@ errc tokenizer_test()
         R_PAREN,
         AMPERSAND,
         L_ANGLE,
-        R_ANGLE,
         NOT_EQUIV,
         SPACE,
         EQUALS,
         SPACE,
-        HASHTAG,
-        SPACE,
-        DOUBLE_QUOTE,
-        QUOTE,
+        COMMENT,
         NEWLINE
     };
     struct tokenStream ts;
@@ -77,10 +83,33 @@ errc tokenizer_test()
     assert(ts.len > 0);
     for(i32 i = 0; i < ts.len; i += 1)
     {
-        //assert(ts.tokens[i].tokenType == tokens[i]);
+        assert(ts.tokens[i].tokenType == tokens[i]);
     }
 
     ts_free(&ts);
+    ok;
+}
+
+errc testing_labels()
+{
+    hstr testString = HSTR("storytext'\n storytext2 # this is another comment");
+    hstr testFileName = HSTR("no file");
+    i32 tokens[] = {
+        LABEL,
+        QUOTE,
+        NEWLINE,
+        SPACE,
+        LABEL,
+        SPACE,
+        COMMENT
+    };
+    struct tokenStream ts;
+    try(tokenize(&ts, &testString, &testFileName));
+    assert(ts.len == arrayCount(tokens));
+
+    for(i32 i = 0; i < ts.len; i += 1)
+        assert(ts.tokens[i].tokenType == tokens[i]);
+
     ok;
 }
 
@@ -91,9 +120,10 @@ struct testEntry {
 };
 
 struct testEntry gTests[] = {
-    // {"simple file loading test", loading_file_test},
-    // {"tokenizer test all terminals", tokenizer_test},
-    {"comment test", commentTest},
+    {"simple file loading test", loading_file_test},
+    {"tokenizer test all terminals", tokenizer_test},
+    {"testing comment detection test", comment_test},
+    {"testing labels", testing_labels},
 };
 
 i32 runAllTests()
