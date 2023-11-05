@@ -110,6 +110,7 @@ errc testing_labels()
     for(i32 i = 0; i < ts.len; i += 1)
         assert(ts.tokens[i].tokenType == tokens[i]);
 
+    ts_free(&ts);
     ok;
 }
 
