@@ -127,7 +127,7 @@ const hstr Terminals[] = {
     HSTR("'"), // DOUBLE_QUOTE,
 };
 
-errc tokenize(const hstr* source, struct tokenStream* ts)
+errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 {
     trackAllocs("ts_initialize");
     try(ts_initialize(ts, source->len));
@@ -137,29 +137,51 @@ errc tokenize(const hstr* source, struct tokenStream* ts)
     const char* r = source->buffer;
     const char* rEnd = source->buffer + source->len;
 
-    struct tokenizer tokenizer = {ts, TOK_MODE_DEFAULT, {ts->source.buffer, 0}};
+    struct tokenizer tokenizer = {ts, TOK_MODE_DEFAULT};
+    i32 lineNumber = 1;
 
     trackAllocs("ts_tokenize");
     while(r < rEnd)
     {
-        // rules for what is a token.
-        // - comments
-        // - story text
-        // - terminals
-
-        tokenizer.view.len += 1;
-        for(i32 i = 0; i < arrayCount(Terminals); i += 1)
+        // check for comments:
+        if(*r == '#')
         {
-            hstr view = { tokenizer.view.buffer, Terminals[i].len };
-            if(hstr_match(&view, &Terminals[i]))
-            {
-                struct token newToken = {i, tokenizer.view, HSTR("no file"), 0};
-                tokenizer.view.buffer = (char*) (r + Terminals[i].len);
-                tokenizer.view.len = 0;
-                r += Terminals[i].len - 1;
+            const char* c = r;
+            while(*c != '\n' && c < rEnd) c++;
 
-                try(ts_push(ts, &newToken));
-                break;
+            hstr view = {(char*) r, c - r};
+
+            struct token newToken = {COMMENT, view, *filename, lineNumber};
+            try(ts_push(ts, &newToken));
+
+            lineNumber += 1;
+            r += view.len;
+        }
+        else {
+            for(i32 i = 0; i < arrayCount(Terminals); i += 1)
+            {
+                // build a view based on the current character and look ahead.
+                hstr view = { (char*) r, Terminals[i].len };
+
+                // clamp it so we don't look at the null terminator or look past the end.
+                if(view.buffer + view.len >= rEnd) 
+                {
+                    view.len = rEnd - view.buffer;
+                }
+
+                if(hstr_match(&view, &Terminals[i]))
+                {
+                    struct token newToken = {i, view, *filename, 0};
+                    r += Terminals[i].len - 1;
+
+                    try(ts_push(ts, &newToken));
+
+                    if(i == NEWLINE)
+                    {
+                        lineNumber += 1;
+                    }
+                    break;
+                }
             }
         }
         r += 1;

@@ -21,11 +21,10 @@ struct tokenStream {
 struct tokenizer {
     struct tokenStream* ts;
     i32 state;
-    hstr view;
 };
 
 
-errc tokenize(const hstr* source, struct tokenStream* ts);
+errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename);
 
 errc ts_initialize(struct tokenStream* ts, i32 source_length_hint);
 
