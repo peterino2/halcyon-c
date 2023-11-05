@@ -9,51 +9,9 @@
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
 
-// ===================== basic tests ========================
-errc comment_test() 
-{
-    fprintf(stderr, "\n");
-    hstr testString = HSTR("    # this is a comment\"'\n # this is another comment");
-    hstr testFileName = HSTR("no file");
-    i32 tokens[] = {
-        SPACE,
-        SPACE,
-        SPACE,
-        SPACE,
-        COMMENT,
-        NEWLINE,
-        SPACE,
-        COMMENT,
-    };
-    i32 lineNumbers[] = {
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        2,
-        2,
-    };
-
-    struct tokenStream ts;
-    try(tokenize(&ts, &testString, &testFileName));
-
-    assert(ts.len > 0);
-    for(i32 i = 0; i < ts.len; i += 1)
-    {
-        // printf("tok: '%.*s' \n", ts.tokens[i].tokenView.len, ts.tokens[i].tokenView.buffer);
-        assert(ts.tokens[i].tokenType == tokens[i]);
-        assert(ts.tokens[i].lineNumber == lineNumbers[i]);
-    }
-
-    ts_free(&ts);
-    ok;
-}
-
+// utilities tests
 errc loading_file_test() 
 {
-    fprintf(stderr, "\n");
     hstr decoded;
     const hstr filePath = HSTR("testfiles/terminals.halc");
     try(loadAndDecodeFromFile(&decoded, &filePath));
@@ -61,69 +19,7 @@ errc loading_file_test()
     ok;
 }
 
-errc tokenizer_test() 
-{
-    fprintf(stderr, "\n");
-    hstr testString = HSTR("[]()&<!= = # \"'\n");
-    hstr testFileName = HSTR("no file");
-    i32 tokens[] = {
-        L_SQBRACK,
-        R_SQBRACK,
-        L_PAREN,
-        R_PAREN,
-        AMPERSAND,
-        L_ANGLE,
-        NOT_EQUIV,
-        SPACE,
-        EQUALS,
-        SPACE,
-        COMMENT,
-        NEWLINE
-    };
-    struct tokenStream ts;
-    try(tokenize(&ts, &testString, &testFileName));
-
-    assert(ts.len > 0);
-    for(i32 i = 0; i < ts.len; i += 1)
-    {
-        assert(ts.tokens[i].tokenType == tokens[i]);
-    }
-
-    ts_free(&ts);
-    ok;
-}
-
-errc testing_labels()
-{
-    hstr testString = HSTR("storytext'\n storytext2 # this is another comment");
-    hstr testFileName = HSTR("no file");
-    i32 tokens[] = {
-        LABEL,
-        QUOTE,
-        NEWLINE,
-        SPACE,
-        LABEL,
-        SPACE,
-        COMMENT
-    };
-    struct tokenStream ts;
-    try(tokenize(&ts, &testString, &testFileName));
-    assert(ts.len == arrayCount(tokens));
-
-    for(i32 i = 0; i < ts.len; i += 1)
-    { 
-        assert(ts.tokens[i].tokenType == tokens[i]);
-    }
-
-    hstr label1 = HSTR("storytext");
-    assert(hstr_match(&ts.tokens[0].tokenView, &label1));
-    hstr label2 = HSTR("storytext2");
-    assert(hstr_match(&ts.tokens[4].tokenView, &label2));
-
-    ts_free(&ts);
-    ok;
-}
-
+// ===================== tokenizer tests ========================
 errc testing_directives()
 {
     hstr testString = HSTR("[helloworld]\n@setVar(wutang clan coming at you)\n @jumpIf(x >= 2)");
@@ -161,6 +57,96 @@ errc testing_directives()
     ok;
 }
 
+errc tokenizer_full()
+{
+    const hstr filename = HSTR("testfiles/storySimple.halc");
+
+    hstr fileContents;
+    try(loadAndDecodeFromFile(&fileContents, &filename));
+    
+    struct tokenStream ts;
+    try(tokenize(&ts, &fileContents, &filename));
+
+    i32 tokens[] = {
+        L_SQBRACK,
+        LABEL,
+        R_SQBRACK,
+        NEWLINE,
+
+        SPEAKERSIGN,
+        COLON,
+        STORY_TEXT,
+        COMMENT,
+        NEWLINE,
+
+        L_SQBRACK,
+        LABEL,
+        R_SQBRACK,
+        NEWLINE,
+
+        SPEAKERSIGN,
+        COLON,
+        STORY_TEXT,
+        NEWLINE,
+
+        COLON,
+        STORY_TEXT,
+        NEWLINE,
+
+        SPACE, SPACE, SPACE, SPACE,
+        R_ANGLE, STORY_TEXT, NEWLINE,
+
+        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
+        
+        SPACE, SPACE, SPACE, SPACE,
+        R_ANGLE, STORY_TEXT, NEWLINE,
+
+        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
+
+        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        LABEL, COLON, STORY_TEXT, NEWLINE,
+
+        SPACE, SPACE, SPACE, SPACE,
+        R_ANGLE, STORY_TEXT, NEWLINE,
+
+        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
+
+        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        AT, LABEL, SPACE, LABEL, NEWLINE,
+
+        AT, LABEL, NEWLINE
+    };
+
+    assert(arrayCount(tokens) == ts.len);
+    for (int i = 0; i < ts.len; i += 1)
+    {
+        // printf("expected: %d %s got: %s\n", i, tokenTypeStrings[tokens[i]], tokenTypeStrings[ts.tokens[i].tokenType]);
+        assert(tokens[i] == ts.tokens[i].tokenType);
+    }
+
+    const hstr label1 = HSTR("hello");
+    assert(hstr_match(&label1, &ts.tokens[1].tokenView));
+    const hstr label2 = HSTR("question");
+    assert(hstr_match(&label2, &ts.tokens[10].tokenView));
+    const hstr comment1 = HSTR("#first comment");
+    assert(hstr_match(&comment1, &ts.tokens[7].tokenView));
+    const hstr storyText = HSTR("I'm going to ask you a question.");
+    assert(hstr_match(&storyText, &ts.tokens[15].tokenView));
+
+    assert(ts.tokens[0].lineNumber == 1);
+    assert(ts.tokens[4].lineNumber == 2);
+    assert(ts.tokens[8].lineNumber == 2);
+    assert(ts.tokens[9].lineNumber == 3);
+    assert(ts.tokens[104].lineNumber == 14);
+
+    ts_free(&ts);
+    hstr_free(&fileContents);
+    ok;
+}
+
 // ====================== test registry ======================
 struct testEntry {
     const char* testName;
@@ -169,10 +155,8 @@ struct testEntry {
 
 struct testEntry gTests[] = {
     {"simple file loading test", loading_file_test},
-    {"tokenizer test all terminals", tokenizer_test},
-    {"testing comment detection test", comment_test},
-    {"testing labels", testing_labels},
     {"testing directives", testing_directives},
+    {"tokenizer full test", tokenizer_full},
 };
 
 i32 runAllTests()

@@ -1,0 +1,14 @@
+[hello]
+$: Hello! #first comment
+[question]
+$: I'm going to ask you a question.
+: do you like cats or dogs?
+    > Cats
+        $: Hmm I guess we can't be friends
+    > Dogs
+        $: Nice!
+        Lee: Yeah man they're delicious
+    > (Chun-Li) Both
+        $: Don't be stupid you have to pick one.
+        @goto question
+@end

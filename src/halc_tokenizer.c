@@ -186,13 +186,25 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             }
             r += 1;
 
+            while (*r == ' ') r++;
+
             const char* c = r;
             while (*c != '\n' && *c != '#' && c < rEnd) c++;
+
+            c--;
+
+            while (*c == ' ') c--;
+
+            c++;
 
             hstr view = { (char*) r, (u32)(c - r)};
             struct token newToken = { STORY_TEXT, view, *filename, lineNumber };
             try(ts_push(ts, &newToken));
-            r += view.len - 1;
+            r += view.len;
+            if (r > rEnd)
+                herror("pointer ran off the end while parsing story text");
+            while (*r == ' ') r++;
+            r--;
             shouldBreak = TRUE;
         }
 
