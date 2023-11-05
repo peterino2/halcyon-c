@@ -24,6 +24,7 @@ errc ts_resize(struct tokenStream* ts)
 
     // resize the array
     ts->capacity *= 2;
+    trackAllocs("resize event");
     try(halloc(&ts->tokens, ts->capacity * sizeof(struct tokenStream)));
 
     // copy over data
@@ -118,6 +119,7 @@ const hstr Terminals[] = {
 
 errc tokenize(const hstr* source, struct tokenStream* ts)
 {
+    trackAllocs("ts_initialize");
     try(ts_initialize(ts, source->len));
     ts->source = *source;
 
@@ -127,6 +129,7 @@ errc tokenize(const hstr* source, struct tokenStream* ts)
 
     struct tokenizer tokenizer = {ts, TOK_MODE_DEFAULT, {ts->source.buffer, 0}};
 
+    trackAllocs("ts_tokenize");
     while(r < rEnd)
     {
         // rules for what is a token.
@@ -151,4 +154,9 @@ errc tokenize(const hstr* source, struct tokenStream* ts)
     }
 
     ok;
+}
+
+void ts_free(struct tokenStream* ts)
+{
+    hfree(ts->tokens);
 }

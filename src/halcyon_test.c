@@ -11,6 +11,7 @@
 
 errc loading_file_test() 
 {
+    fprintf(stderr, "\n");
     hstr decoded;
     const hstr filePath = HSTR("src/halcyon_test.c");
     try(loadAndDecodeFromFile(&decoded, &filePath));
@@ -20,6 +21,7 @@ errc loading_file_test()
 
 errc tokenizer_test() 
 {
+    fprintf(stderr, "\n");
     hstr filePath = HSTR("testfiles/terminals.halc");
 
     hstr decoded;
@@ -32,6 +34,8 @@ errc tokenizer_test()
     assert(ts.tokens[0].tokenType == L_SQBRACK);
     assert(ts.tokens[1].tokenType == R_SQBRACK);
 
+    ts_free(&ts);
+    hstr_free(&decoded);
     ok;
 }
 
@@ -45,13 +49,6 @@ struct testEntry gTests[] = {
     {"simple file loading test", loading_file_test},
     {"tokenizer test all terminals", tokenizer_test},
 };
-
-errc setupTestHarness() 
-{
-    setupDefaultAllocator(); // TODO swap this with a testing allocator
-    ok;
-}
-
 i32 runAllTests()
 {
     i32 failures = 0;
@@ -59,6 +56,7 @@ i32 runAllTests()
     for(int i = 0; i < sizeof(gTests) / sizeof(gTests[0]); i += 1)
     {
         printf("Running test: ... %s", gTests[i].testName);
+        trackAllocs(gTests[i].testName);
         if(gTests[i].testFunc() != ERR_OK)
         {
             printf("Test Failed! %s\n", gTests[i].testName);
@@ -69,6 +67,7 @@ i32 runAllTests()
             passes += 1;
             printf("\r                                                    \r");
         }
+        untrackAllocs();
     }
 
     printf("total: %d\npassed: %d\nfailed: %d\n", passes + failures, passes, failures);
@@ -78,7 +77,18 @@ i32 runAllTests()
 
 int main(int argc, char** argv)
 {
+    setupDefaultAllocator(); // TODO swap this with a testing allocator
     setupErrorContext();
-    ensure(setupTestHarness());
+
+    const hstr trackAllocs = HSTR("-a");
+    for(i32 i = 0; i < argc; i += 1)
+    {
+        hstr arg = {argv[i], strlen(argv[i])};
+        if(hstr_match(&arg, &trackAllocs))
+        {
+            enableAllocationTracking();
+        }
+    }
+
     return runAllTests();
 }

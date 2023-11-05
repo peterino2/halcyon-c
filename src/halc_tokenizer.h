@@ -33,6 +33,10 @@ errc ts_resize(struct tokenStream* ts);
 
 errc ts_push(struct tokenStream* ts, struct token* tok);
 
+void ts_free(struct tokenStream* ts);
+
+void enableAllocationTracking();
+
 #define TOK_MODE_ERROR -1
 #define TOK_MODE_DEFAULT 0
 #define TOK_MODE_STORY 1
@@ -75,5 +79,6 @@ enum tokenType{
 
 extern const char* tokenTypeStrings[];
 extern const hstr Terminals[];
+
 
 #endif
