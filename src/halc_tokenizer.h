@@ -5,7 +5,7 @@
 #include "halc_strings.h"
 
 struct token {
-    enum tokenType tokenType;
+    i32 tokenType;
     hstr tokenView;
     hstr fileName;
     i32 lineNumber;
