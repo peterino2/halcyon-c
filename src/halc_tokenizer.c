@@ -153,6 +153,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
     struct tokenizer tokenizer = {ts, TOK_MODE_DEFAULT};
     i32 lineNumber = 1;
     b8 shouldBreak = FALSE;
+    b8 directiveParenCount = 0;
 
     trackAllocs("ts_tokenize");
     while(r < rEnd)
@@ -163,7 +164,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             const char* c = r;
             while(*c != '\n' && c < rEnd) c++;
 
-            hstr view = {(char*) r, c - r};
+            hstr view = {(char*) r, (u32)(c - r)};
 
             struct token newToken = {COMMENT, view, *filename, lineNumber};
             try(ts_push(ts, &newToken));
@@ -171,7 +172,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             shouldBreak = TRUE;
         }
 
-        if ((*r == ':' || *r == '>' ) && !shouldBreak)
+        if ((*r == ':' || *r == '>' ) && !shouldBreak && directiveParenCount == 0)
         {
             if (*r == ':')
             {
@@ -188,7 +189,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             const char* c = r;
             while (*c != '\n' && *c != '#' && c < rEnd) c++;
 
-            hstr view = { (char*) r, c - r};
+            hstr view = { (char*) r, (u32)(c - r)};
             struct token newToken = { STORY_TEXT, view, *filename, lineNumber };
             try(ts_push(ts, &newToken));
             r += view.len - 1;
@@ -205,7 +206,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
                 // clamp it so we don't look at the null terminator or look past the end.
                 if(view.buffer + view.len >= rEnd) 
                 {
-                    view.len = rEnd - view.buffer;
+                    view.len = (u32) (rEnd - view.buffer);
                 }
 
                 if(hstr_match(&view, &Terminals[i]))
@@ -217,7 +218,18 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 
                     if(i == NEWLINE)
                     {
+                        directiveParenCount = 0;
                         lineNumber += 1;
+                    }
+
+                    if (i == L_PAREN)
+                    {
+                        directiveParenCount += 1;
+                    }
+
+                    if (i == R_PAREN)
+                    {
+                        directiveParenCount -= 1;
                     }
                     shouldBreak = TRUE;
                     break;
@@ -231,7 +243,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             const char* c = r;
             while (c < rEnd && isAlphaNumeric(*c)) c++;
 
-            hstr view = { (char*) r, c - r};
+            hstr view = { (char*) r, (u32)(c - r)};
             struct token newToken = { LABEL, view, *filename, lineNumber };
 
             try(ts_push(ts, &newToken));

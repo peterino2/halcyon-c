@@ -9,6 +9,7 @@
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
 
+// ===================== basic tests ========================
 errc comment_test() 
 {
     fprintf(stderr, "\n");
@@ -34,12 +35,14 @@ errc comment_test()
         2,
         2,
     };
+
     struct tokenStream ts;
     try(tokenize(&ts, &testString, &testFileName));
 
     assert(ts.len > 0);
     for(i32 i = 0; i < ts.len; i += 1)
     {
+        // printf("tok: '%.*s' \n", ts.tokens[i].tokenView.len, ts.tokens[i].tokenView.buffer);
         assert(ts.tokens[i].tokenType == tokens[i]);
         assert(ts.tokens[i].lineNumber == lineNumbers[i]);
     }
@@ -108,8 +111,52 @@ errc testing_labels()
     assert(ts.len == arrayCount(tokens));
 
     for(i32 i = 0; i < ts.len; i += 1)
+    { 
         assert(ts.tokens[i].tokenType == tokens[i]);
+    }
 
+    hstr label1 = HSTR("storytext");
+    assert(hstr_match(&ts.tokens[0].tokenView, &label1));
+    hstr label2 = HSTR("storytext2");
+    assert(hstr_match(&ts.tokens[4].tokenView, &label2));
+
+    ts_free(&ts);
+    ok;
+}
+
+errc testing_directives()
+{
+    hstr testString = HSTR("[helloworld]\n@setVar(wutang clan coming at you)\n @jumpIf(x >= 2)");
+    hstr testFileName = HSTR("no file");
+    i32 tokens[] = {
+        L_SQBRACK, LABEL, R_SQBRACK, NEWLINE,
+        AT, LABEL, L_PAREN, 
+        LABEL, SPACE,
+        LABEL, SPACE,
+        LABEL, SPACE,
+        LABEL, SPACE,
+        LABEL, R_PAREN,
+        NEWLINE,
+        SPACE,
+        AT,
+        LABEL,
+        L_PAREN,
+        LABEL,
+        SPACE,
+        GREATER_EQ,
+        SPACE,
+        LABEL,
+        R_PAREN
+    };
+    struct tokenStream ts;
+    try(tokenize(&ts, &testString, &testFileName));
+
+    for(i32 i = 0; i < ts.len; i += 1)
+    { 
+        assert(ts.tokens[i].tokenType == tokens[i]);
+    }
+
+    assert(ts.len == arrayCount(tokens));
     ts_free(&ts);
     ok;
 }
@@ -125,6 +172,7 @@ struct testEntry gTests[] = {
     {"tokenizer test all terminals", tokenizer_test},
     {"testing comment detection test", comment_test},
     {"testing labels", testing_labels},
+    {"testing directives", testing_directives},
 };
 
 i32 runAllTests()
