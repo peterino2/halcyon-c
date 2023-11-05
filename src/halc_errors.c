@@ -23,6 +23,10 @@ const char* errcToString(errc code)
             return "Assertion failed";
         case ERR_TOKENIZER_POINTER_OVERFLOW:
             return "Pointer Ran off the end while tokenizing";
+        case ERR_UNRECOGNIZED_TOKEN:
+            return "Unrecognized token";
+        case ERR_TOKEN_OUT_OF_RANGE:
+            return "Token is not part of this source file, pointer not in range.";
         default: 
             break;
     }
@@ -37,7 +41,7 @@ void errorPrint(errc code, const char* C, const char* F, int L)
         fprintf(stderr, "\n");
         gErrorFirst = FALSE;
     }
-    fprintf(stderr, "  > Error \"%s\": '%s' %s:%d\n", errcToString(code), C, F, L);
+    fprintf(stderr, "  > Error \"%s\"(%d): '%s' %s:%d\n", errcToString(code), code, C, F, L);
 }
 
 void setupErrorContext()

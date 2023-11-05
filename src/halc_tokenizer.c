@@ -147,6 +147,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
     trackAllocs("ts_initialize");
     try(ts_initialize(ts, source->len));
     ts->source = *source;
+    ts->filename = *filename;
 
     // initialize a pointer and start walking through the source
     const char* r = source->buffer;
@@ -287,3 +288,84 @@ void ts_free(struct tokenStream* ts)
 {
     hfree(ts->tokens);
 }
+
+errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_line_offsets* offsets)
+{
+    // find the line of the source file that the token resides on and print out the line.
+    i32 linelen = 0;
+    out->buffer = NULL;
+    out->len = 0;
+
+    const char* l = tok->tokenView.buffer;
+    const char* sEnd = source->buffer + source->len;
+
+    if (l > sEnd) herror(ERR_TOKEN_OUT_OF_RANGE);
+    if (l < source->buffer) herror(ERR_TOKEN_OUT_OF_RANGE);
+
+    if (*tok->tokenView.buffer == '\n')
+    {
+        l--;
+        while (l > source->buffer && *l != '\n') l--;
+        l += 1;
+
+        out->buffer = l;
+        out->len = tok->tokenView.buffer - l;
+
+        offsets->tok_start = tok->tokenView.buffer - l;
+        offsets->tok_end = offsets->tok_start + 1;
+
+        return ERR_OK;
+    }
+
+    while (l > source->buffer && *l != '\n') l--;
+    if(*l == '\n')
+        l += 1;
+
+    const char* lstart = l;
+    offsets->tok_start = tok->tokenView.buffer - lstart;
+    offsets->tok_end = offsets->tok_start + tok->tokenView.len - 1;
+
+    l = tok->tokenView.buffer + tok->tokenView.len - 1;
+    while (l < sEnd && *l != '\n') l++;
+
+    const char* lend = l;
+
+    out->buffer = (char*) lstart;
+    out->len = (u32)(lend - lstart);
+
+cleanup:
+    end;
+}
+
+errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun)
+{
+    struct token tok = ts->tokens[index];
+
+    hstr sl;
+    struct tok_line_offsets offsets;
+    tok_get_sourceline(&tok, &ts->source, &sl, &offsets);
+
+    if (dryRun)
+    {
+        return;
+    }
+
+    printf("token at: %.*s \n", 
+        ts->filename.len, ts->filename.buffer);
+
+    printf("line %6d: ", tok.lineNumber);
+    printf("%.*s \n", sl.len, sl.buffer);
+    printf("             ");
+    for (i32 i = 0; i < offsets.tok_start; i++)
+    {
+        printf(" ");
+    }
+
+    for (i32 i = offsets.tok_start; i <= offsets.tok_end; i++)
+    {
+        printf(YELLOW("^"));
+    }
+
+    printf("%s(%d)\n",tokenTypeStrings[tok.tokenType], tok.tokenType);
+}
+

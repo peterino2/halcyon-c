@@ -52,6 +52,7 @@ struct tokenStream {
     struct token* tokens; //8
     i32 len; // 4
     i32 capacity; //4
+    hstr filename; // 16
 };
 
 struct tokenizer {
@@ -59,6 +60,10 @@ struct tokenizer {
     i32 state;
 };
 
+struct tok_line_offsets {
+    i32 tok_start;
+    i32 tok_end;
+};
 
 errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename);
 
@@ -78,5 +83,7 @@ void ts_free(struct tokenStream* ts);
 extern const char* tokenTypeStrings[];
 extern const hstr Terminals[];
 
+errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun);
+errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_line_offsets* offsets);
 
 #endif

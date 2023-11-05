@@ -22,6 +22,7 @@ typedef int errc;
 
 #define ERR_UNRECOGNIZED_TOKEN 4000
 #define ERR_TOKENIZER_POINTER_OVERFLOW 4001
+#define ERR_TOKEN_OUT_OF_RANGE 4002
 
 const char* errcToString(errc code);
 void errorPrint(errc code, const char* C, const char* F, int L);

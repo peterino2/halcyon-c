@@ -164,6 +164,28 @@ cleanup:
     return ERR_OK;
 }
 
+b8 gPrintouts;
+
+errc token_printouts()
+{
+    const hstr filename = HSTR("testfiles/storySimple.halc");
+
+    hstr fileContents;
+    try(loadAndDecodeFromFile(&fileContents, &filename));
+    
+    struct tokenStream ts;
+    try(tokenize(&ts, &fileContents, &filename));
+
+    for (i32 i = 0; i < ts.len; i += 1)
+    {
+        ts_print_token(&ts, i, !gPrintouts);
+    }
+
+    ts_free(&ts);
+    hstr_free(&fileContents);
+    return ERR_OK;
+}
+
 // ====================== test registry ======================
 struct testEntry {
     const char* testName;
@@ -174,7 +196,8 @@ struct testEntry gTests[] = {
     {"simple file loading test", loading_file_test},
     {"testing directives", testing_directives},
     {"tokenizer full test", tokenizer_full},
-    {"random utf8 safety",  test_random_utf8}
+    {"random utf8 safety",  test_random_utf8},
+    {"debugging token printouts",  token_printouts}
 };
 
 i32 runAllTests()
@@ -183,6 +206,7 @@ i32 runAllTests()
     i32 passes = 0;
     for(int i = 0; i < sizeof(gTests) / sizeof(gTests[0]); i += 1)
     {
+        gErrorCatch = ERR_OK;
         printf("Running test: ... %s", gTests[i].testName);
         trackAllocs(gTests[i].testName);
         if(gTests[i].testFunc() != ERR_OK)
@@ -200,6 +224,11 @@ i32 runAllTests()
 
     printf("total: %d\npassed: %d\nfailed: %d\n", passes + failures, passes, failures);
 
+    if (failures == 0)
+    {
+        printf(GREEN("All tests passed! :)"));
+    }
+
     return failures;
 }
 
@@ -209,12 +238,20 @@ int main(int argc, char** argv)
     setupErrorContext();
 
     const hstr trackAllocs = HSTR("-a");
+    const hstr doPrintouts = HSTR("--printout");
+    gPrintouts = FALSE;
+
     for(i32 i = 0; i < argc; i += 1)
     {
         hstr arg = {argv[i], strlen(argv[i])};
         if(hstr_match(&arg, &trackAllocs))
         {
             enableAllocationTracking();
+        }
+
+        if(hstr_match(&arg, &doPrintouts))
+        {
+            gPrintouts = TRUE;
         }
     }
 
