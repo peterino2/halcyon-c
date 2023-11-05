@@ -5,17 +5,17 @@
 #include "halc_strings.h"
 
 struct token {
-    i32 tokenType;
+    enum tokenType tokenType;
     hstr tokenView;
     hstr fileName;
     i32 lineNumber;
 };
 
 struct tokenStream {
-    hstr source;
-    struct token* tokens;
-    i32 len;
-    i32 capacity;
+    hstr source; // 16
+    struct token* tokens; //8
+    i32 len; // 4
+    i32 capacity; //4
 };
 
 struct tokenizer {

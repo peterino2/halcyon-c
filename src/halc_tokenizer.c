@@ -13,7 +13,7 @@ errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
     // Then doubling that. we can be more conservative but memory feels cheap these days.
     
     ts->capacity = ((source_length_hint / 40) + 1) * 8 * 2;
-    halloc(&ts->tokens, ts->capacity * sizeof(struct tokenStream));
+    halloc(&ts->tokens, ts->capacity * sizeof(struct token));
 
     ok;
 }
@@ -27,7 +27,7 @@ errc ts_resize(struct tokenStream* ts)
     ts->capacity *= 2;
     trackAllocs("resize event");
     struct token* newTokens;
-    try(halloc(&newTokens, ts->capacity * sizeof(struct tokenStream)));
+    try(halloc(&newTokens, ts->capacity * sizeof(struct token)));
 
     // copy over data
     for (i32 i = 0; i < oldCapacity; i += 1)
@@ -45,16 +45,11 @@ errc ts_resize(struct tokenStream* ts)
 
 errc ts_push(struct tokenStream* ts, struct token* tok)
 {
-    if(ts->len>= ts->capacity)
+    if(ts->len >= ts->capacity)
     {
         fprintf(stderr, "resizing!\n");
         try(ts_resize(ts));
     }
-
-    fprintf(stderr, "writing to: offset=%d %p size=%d capacity=%ld\n", ts->len, ts->tokens + ts->len, sizeof(*tok), ts->capacity);
-
-    assert(((usize)(ts->len + ts->tokens) % 8) == 0);
-    assert(ts->len < ts->capacity);
 
     ts->tokens[ts->len] = *tok;
     ts->len += 1;
@@ -155,11 +150,13 @@ errc tokenize(const hstr* source, struct tokenStream* ts)
         tokenizer.view.len += 1;
         for(i32 i = 0; i < arrayCount(Terminals); i += 1)
         {
-            if(hstr_match(&tokenizer.view, &Terminals[i]))
+            hstr view = { tokenizer.view.buffer, Terminals[i].len };
+            if(hstr_match(&view, &Terminals[i]))
             {
                 struct token newToken = {i, tokenizer.view, HSTR("no file"), 0};
-                tokenizer.view.buffer = (char*) (r + 1);
+                tokenizer.view.buffer = (char*) (r + Terminals[i].len);
                 tokenizer.view.len = 0;
+                r += Terminals[i].len - 1;
 
                 try(ts_push(ts, &newToken));
                 break;
