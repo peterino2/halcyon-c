@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.14)
 
 project(halcyon)
 
-set(CMAKE_C_FLAGS /RTC)
 add_executable( halcyon_test
     src/halcyon_test.c
     src/halc_allocators.c
