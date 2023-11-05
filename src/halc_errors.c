@@ -21,6 +21,8 @@ const char* errcToString(errc code)
             return "File Seek error";
         case ERR_ASSERTION_FAILED:
             return "Assertion failed";
+        case ERR_TOKENIZER_POINTER_OVERFLOW:
+            return "Pointer Ran off the end while tokenizing";
         default: 
             break;
     }

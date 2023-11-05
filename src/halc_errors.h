@@ -21,6 +21,7 @@ typedef int errc;
 #define ERR_ASSERTION_FAILED 3000
 
 #define ERR_UNRECOGNIZED_TOKEN 4000
+#define ERR_TOKENIZER_POINTER_OVERFLOW 4001
 
 const char* errcToString(errc code);
 void errorPrint(errc code, const char* C, const char* F, int L);

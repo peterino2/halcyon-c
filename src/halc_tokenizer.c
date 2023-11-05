@@ -204,7 +204,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             try(ts_push(ts, &newToken));
             r += view.len;
             if (r > rEnd)
-                herror("pointer ran off the end while parsing story text");
+                herror(ERR_TOKENIZER_POINTER_OVERFLOW);
             while (*r == ' ') r++;
             r--;
             shouldBreak = TRUE;
