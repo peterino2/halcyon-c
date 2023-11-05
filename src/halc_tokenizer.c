@@ -308,7 +308,7 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
         while (l > source->buffer && *l != '\n') l--;
         l += 1;
 
-        out->buffer = l;
+        out->buffer = (char*) l;
         out->len = tok->tokenView.buffer - l;
 
         offsets->tok_start = tok->tokenView.buffer - l;
@@ -343,11 +343,11 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun)
 
     hstr sl;
     struct tok_line_offsets offsets;
-    tok_get_sourceline(&tok, &ts->source, &sl, &offsets);
+    try(tok_get_sourceline(&tok, &ts->source, &sl, &offsets));
 
     if (dryRun)
     {
-        return;
+        return ERR_OK;
     }
 
     printf("token at: %.*s \n", 
@@ -367,5 +367,7 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun)
     }
 
     printf("%s(%d)\n",tokenTypeStrings[tok.tokenType], tok.tokenType);
+
+    end;
 }
 

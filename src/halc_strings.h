@@ -19,12 +19,12 @@ errc hstr_decodeUtf8(const hstr* istr, hstr* ostr);
 
 #define arrayCount(X) sizeof(X) / sizeof(X[0])
 
-#define BLACK(X) "\033[0;30m" ##X "\033[0m" 
-#define RED(X) "\033[0;31m" ##X "\033[0m" 
-#define GREEN(X) "\033[0;32m" ##X "\033[0m" 
-#define YELLOW(X) "\033[0;33m" ##X "\033[0m" 
-#define BLUE(X) "\033[0;34m" ##X "\033[0m" 
-#define PURPLE(X) "\033[0;35m" ##X "\033[0m" 
-#define CYAN(X) "\033[0;36m" ##X "\033[0m" 
+#define BLACK(X) "\033[0;30m" X "\033[0m" 
+#define RED(X) "\033[0;31m" X "\033[0m" 
+#define GREEN(X) "\033[0;32m" X "\033[0m" 
+#define YELLOW(X) "\033[0;33m" X "\033[0m" 
+#define BLUE(X) "\033[0;34m" X "\033[0m" 
+#define PURPLE(X) "\033[0;35m" X "\033[0m" 
+#define CYAN(X) "\033[0;36m" X "\033[0m" 
 
 #endif
