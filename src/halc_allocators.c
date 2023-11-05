@@ -13,7 +13,7 @@ errc setupDefaultAllocator()
 }
 
 errc setupCustomDefaultAllocator(
-    void* (*malloc_fn) (usize),
+    void* (*malloc_fn) (size_t),
     void (*free_fn) (void*))
 {
     gDefaultAllocator.malloc_fn = malloc;
@@ -22,7 +22,7 @@ errc setupCustomDefaultAllocator(
     ok;
 }
 
-errc halloc_advanced(void** ptr, usize size)
+errc halloc_advanced(void** ptr, size_t size)
 {
     *ptr = gDefaultAllocator.malloc_fn(size);
     if(!*ptr)
