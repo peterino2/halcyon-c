@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "halc_errors.h"
+#include "halc_strings.h"
 
 errc gErrorCatch = ERR_OK; b8 gErrorFirst = FALSE;
 
@@ -41,7 +42,7 @@ void errorPrint(errc code, const char* C, const char* F, int L)
         fprintf(stderr, "\n");
         gErrorFirst = FALSE;
     }
-    fprintf(stderr, "  > Error \"%s\"(%d): '%s' %s:%d\n", errcToString(code), code, C, F, L);
+    fprintf(stderr, "  > " RED("Error") RED(" \"%s\"(%d):") YELLOW(" '%s'") CYAN(" %s:%d\n"), errcToString(code), code, C, F, L);
 }
 
 void setupErrorContext()

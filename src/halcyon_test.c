@@ -247,7 +247,7 @@ int main(int argc, char** argv)
 
     for(i32 i = 0; i < argc; i += 1)
     {
-        hstr arg = {argv[i], strlen(argv[i])};
+        hstr arg = {argv[i], (u32)strlen(argv[i])};
         if(hstr_match(&arg, &trackAllocs))
         {
             enableAllocationTracking();

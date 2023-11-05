@@ -23,7 +23,7 @@ errc loadFile(hstr* out, const hstr* filePath)
     FILE* file = h_fopen(filePath->buffer, "rb");
     if(!file)
     {
-        fprintf(stderr, "\n  Unable to open file: %s", filePath->buffer);
+        fprintf(stderr, "\n  Unable to open file: %s\n", filePath->buffer);
         herror(ERR_UNABLE_TO_OPEN_FILE);
     }
 

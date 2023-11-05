@@ -309,9 +309,9 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
         l += 1;
 
         out->buffer = (char*) l;
-        out->len = tok->tokenView.buffer - l;
+        out->len = (u32)(tok->tokenView.buffer - l);
 
-        offsets->tok_start = tok->tokenView.buffer - l;
+        offsets->tok_start = (u32) (tok->tokenView.buffer - l);
         offsets->tok_end = offsets->tok_start + 1;
 
         return ERR_OK;
@@ -322,7 +322,7 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
         l += 1;
 
     const char* lstart = l;
-    offsets->tok_start = tok->tokenView.buffer - lstart;
+    offsets->tok_start = (u32) (tok->tokenView.buffer - lstart);
     offsets->tok_end = offsets->tok_start + tok->tokenView.len - 1;
 
     l = tok->tokenView.buffer + tok->tokenView.len - 1;
