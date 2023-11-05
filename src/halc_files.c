@@ -65,8 +65,8 @@ errc loadFile(hstr* out, const hstr* filePath)
     end;
     
 exitCloseFile:
-cleanup:
     fclose(file);
+cleanup:
     end;
 }
 

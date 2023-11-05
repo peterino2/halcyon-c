@@ -228,6 +228,10 @@ i32 runAllTests()
     {
         printf(GREEN("All tests passed! :)"));
     }
+    else 
+    {
+        printf(RED("Tests have failed!!\n"));
+    }
 
     return failures;
 }
