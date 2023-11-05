@@ -31,7 +31,7 @@ void errorPrint(errc code, const char* C, const char* F, int L);
     return gErrorCatch;\
 }
 
-#define tryCleanup(X, U) if((gErrorCatch = X)) {\
+#define tryCleanup(X) if((gErrorCatch = X)) {\
     errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
     goto cleanup;\
 }
