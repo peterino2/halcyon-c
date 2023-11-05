@@ -22,7 +22,7 @@ extern struct allocator gDefaultAllocator;
 errc setupCustomDefaultAllocator(void* (*malloc_fn) (size_t), void (*free_fn) (void*));
 errc halloc_advanced(void** ptr, size_t size);
 
-#define halloc(ptr, size) halloc_advanced((void**) ptr, size)
+#define halloc(ptr, size) tryCleanup(halloc_advanced((void**) ptr, size))
 
 void hfree(void* ptr);
 void trackAllocs(const char* contextString);

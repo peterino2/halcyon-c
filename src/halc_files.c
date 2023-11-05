@@ -42,7 +42,7 @@ errc loadFile(hstr* out, const hstr* filePath)
     }
 
     char* buffer;
-    try(halloc(&buffer, fileSize));
+    halloc(&buffer, fileSize);
 
     if(fseek(file, 0, SEEK_SET) != 0)
     {
@@ -62,12 +62,13 @@ errc loadFile(hstr* out, const hstr* filePath)
     out->len = (u32) bytesRead;
 
     fclose(file);
-    ok;
+    end;
     
 exitCloseFile:
+cleanup:
     fclose(file);
     herror(error_code);
-    ok;
+    end;
 }
 
 errc loadAndDecodeFromFile(hstr* out, const hstr* filePath)
@@ -77,5 +78,5 @@ errc loadAndDecodeFromFile(hstr* out, const hstr* filePath)
     try(hstr_decodeUtf8(&file, out));
 
     hstr_free(&file);
-    ok;
+    end;
 }

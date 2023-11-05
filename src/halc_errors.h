@@ -20,6 +20,8 @@ typedef int errc;
 // assertions
 #define ERR_ASSERTION_FAILED 3000
 
+#define ERR_UNRECOGNIZED_TOKEN 4000
+
 const char* errcToString(errc code);
 void errorPrint(errc code, const char* C, const char* F, int L);
 
@@ -29,16 +31,21 @@ void errorPrint(errc code, const char* C, const char* F, int L);
     return gErrorCatch;\
 }
 
+#define tryCleanup(X, U) if((gErrorCatch = X)) {\
+    errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
+    goto cleanup;\
+}
+
 #define ensure(X) if((gErrorCatch = X)) {\
     errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
     abort();\
 } \
 
-#define ok return ERR_OK;
+#define end return gErrorCatch;
 #define herror(X) do{ \
     gErrorCatch = X;\
     errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
-    return gErrorCatch; }while(0)
+    goto cleanup; }while(0)
 
 #define assert(X) if(!(X)) {herror(ERR_ASSERTION_FAILED); }
 

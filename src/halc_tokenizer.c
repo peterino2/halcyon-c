@@ -15,7 +15,8 @@ errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
     ts->capacity = ((source_length_hint / 40) + 1) * 8 * 2;
     halloc(&ts->tokens, ts->capacity * sizeof(struct token));
 
-    ok;
+cleanup:
+    end;
 }
 
 errc ts_resize(struct tokenStream* ts)
@@ -27,7 +28,7 @@ errc ts_resize(struct tokenStream* ts)
     ts->capacity *= 2;
     trackAllocs("resize event");
     struct token* newTokens;
-    try(halloc(&newTokens, ts->capacity * sizeof(struct token)));
+    halloc(&newTokens, ts->capacity * sizeof(struct token));
 
     // copy over data
     for (i32 i = 0; i < oldCapacity; i += 1)
@@ -40,7 +41,8 @@ errc ts_resize(struct tokenStream* ts)
 
     ts->tokens = newTokens;
 
-    ok;
+cleanup:
+    end;
 }
 
 errc ts_push(struct tokenStream* ts, struct token* tok)
@@ -54,7 +56,7 @@ errc ts_push(struct tokenStream* ts, struct token* tok)
     ts->tokens[ts->len] = *tok;
     ts->len += 1;
 
-    ok;
+    end;
 }
 
 const char* tokenTypeStrings[] = {
@@ -250,7 +252,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
         }
 
         // try to build a label instead
-        if (!shouldBreak)
+        if (!shouldBreak && isAlphaNumeric(*r))
         {
             const char* c = r;
             while (c < rEnd && isAlphaNumeric(*c)) c++;
@@ -263,11 +265,21 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             shouldBreak = TRUE;
         }
 
+        if (!shouldBreak)
+        {
+            fprintf(stderr, "Unknown character: %c\n", *r);
+            herror(ERR_UNRECOGNIZED_TOKEN);
+        }
+
         r += 1;
         shouldBreak = FALSE;
     }
 
-    ok;
+    end;
+
+cleanup:
+    ts_free(ts);
+    end;
 }
 
 

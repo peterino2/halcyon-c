@@ -42,7 +42,7 @@ void hstr_free(hstr* str)
 errc hstr_decodeUtf8(const hstr* istr, hstr* ostr)
 {
     // Allocate working buffer
-    try(halloc(&ostr->buffer, istr->len));
+    halloc(&ostr->buffer, istr->len);
     ostr->len = 0;
 
     char* w = ostr->buffer;
@@ -70,5 +70,6 @@ errc hstr_decodeUtf8(const hstr* istr, hstr* ostr)
 
     ostr->len = (u32)(w - ostr->buffer);
 
-    ok;
+cleanup:
+    end;
 }

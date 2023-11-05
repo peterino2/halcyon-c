@@ -16,7 +16,7 @@ errc loading_file_test()
     const hstr filePath = HSTR("testfiles/terminals.halc");
     try(loadAndDecodeFromFile(&decoded, &filePath));
     hstr_free(&decoded);
-    ok;
+    end;
 }
 
 // ===================== tokenizer tests ========================
@@ -53,8 +53,10 @@ errc testing_directives()
     }
 
     assert(ts.len == arrayCount(tokens));
+
+cleanup:
     ts_free(&ts);
-    ok;
+    end;
 }
 
 errc tokenizer_full()
@@ -142,9 +144,24 @@ errc tokenizer_full()
     assert(ts.tokens[9].lineNumber == 3);
     assert(ts.tokens[104].lineNumber == 14);
 
+cleanup:
     ts_free(&ts);
     hstr_free(&fileContents);
-    ok;
+    end;
+}
+
+errc test_random_utf8()
+{
+    hstr filename = HSTR("testfiles/random_utf8.halc");
+    hstr content;
+    try(loadAndDecodeFromFile(&content, &filename));
+
+    struct tokenStream ts;
+    assert(tokenize(&ts, &content, &filename) == ERR_UNRECOGNIZED_TOKEN);
+
+cleanup:
+    hstr_free(&content);
+    return ERR_OK;
 }
 
 // ====================== test registry ======================
@@ -157,6 +174,7 @@ struct testEntry gTests[] = {
     {"simple file loading test", loading_file_test},
     {"testing directives", testing_directives},
     {"tokenizer full test", tokenizer_full},
+    {"random utf8 safety",  test_random_utf8}
 };
 
 i32 runAllTests()

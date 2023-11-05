@@ -37,7 +37,7 @@ errc setupDefaultAllocator()
     gTrackAllocations = FALSE;
     gAllowTrackAllocations = FALSE;
 
-    ok;
+    end;
 }
 
 void enableAllocationTracking()
@@ -52,7 +52,7 @@ errc setupCustomDefaultAllocator(
     gDefaultAllocator.malloc_fn = malloc;
     gDefaultAllocator.free_fn = free;
 
-    ok;
+    end;
 }
 
 errc halloc_advanced(void** ptr, size_t size)
@@ -70,7 +70,8 @@ errc halloc_advanced(void** ptr, size_t size)
     }
 #endif
 
-    ok;
+cleanup:
+    end;
 }
 
 void hfree(void* ptr)
