@@ -59,7 +59,7 @@ errc loadFile(hstr* out, const hstr* filePath)
     }
 
     out->buffer = buffer;
-    out->len = bytesRead;
+    out->len = (u32) bytesRead;
 
     fclose(file);
     ok;

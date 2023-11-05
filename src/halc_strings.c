@@ -68,7 +68,7 @@ errc hstr_decodeUtf8(const hstr* istr, hstr* ostr)
 
     *w = '\0';
 
-    ostr->len = w - ostr->buffer;
+    ostr->len = (u32)(w - ostr->buffer);
 
     ok;
 }
