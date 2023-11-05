@@ -12,7 +12,7 @@
 errc loading_file_test() 
 {
     hstr decoded;
-    const hstr filePath = HSTR("testfiles/halcyon_test.c");
+    const hstr filePath = HSTR("src/halcyon_test.c");
     try(loadAndDecodeFromFile(&decoded, &filePath));
     hstr_free(&decoded);
     ok;
@@ -52,7 +52,7 @@ errc setupTestHarness()
     ok;
 }
 
-void runAllTests()
+i32 runAllTests()
 {
     i32 failures = 0;
     i32 passes = 0;
@@ -72,11 +72,13 @@ void runAllTests()
     }
 
     printf("total: %d\npassed: %d\nfailed: %d\n", passes + failures, passes, failures);
+
+    return failures;
 }
 
 int main(int argc, char** argv)
 {
     setupErrorContext();
     ensure(setupTestHarness());
-    runAllTests();
+    return runAllTests();
 }
