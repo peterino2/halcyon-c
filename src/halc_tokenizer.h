@@ -83,7 +83,7 @@ void ts_free(struct tokenStream* ts);
 extern const char* tokenTypeStrings[];
 extern const hstr Terminals[];
 
-errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun);
+errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, const char* color);
 errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_line_offsets* offsets);
 
 #endif

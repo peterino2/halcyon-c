@@ -39,7 +39,7 @@ void hstr_free(hstr* str)
     str->buffer = NULL;
 }
 
-errc hstr_decodeUtf8(const hstr* istr, hstr* ostr)
+errc hstr_normalize_lf(const hstr* istr, hstr* ostr)
 {
     // Allocate working buffer
     halloc(&ostr->buffer, istr->len);

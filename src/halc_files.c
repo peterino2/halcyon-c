@@ -1,5 +1,6 @@
 #include "halc_files.h"
 #include "halc_allocators.h"
+#include "halc_strings.h"
 
 FILE* h_fopen(const char* filePath, const char* opts) 
 {
@@ -74,7 +75,7 @@ errc loadAndDecodeFromFile(hstr* out, const hstr* filePath)
 {
     hstr file;
     try(loadFile(&file, filePath));
-    try(hstr_decodeUtf8(&file, out));
+    try(hstr_normalize_lf(&file, out));
 
     hstr_free(&file);
     end;

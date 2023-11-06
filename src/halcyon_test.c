@@ -178,12 +178,94 @@ errc token_printouts()
 
     for (i32 i = 0; i < ts.len; i += 1)
     {
-        ts_print_token(&ts, i, !gPrintouts);
+        ts_print_token(&ts, i, !gPrintouts, YELLOW_S);
     }
 
     ts_free(&ts);
     hstr_free(&fileContents);
     return ERR_OK;
+}
+
+// ====================== storygraph ========================
+
+struct s_node
+{
+    struct tokenStream* ts;
+    i32 index;
+};
+
+struct s_graph {
+    struct s_node* nodes;
+    i32 capacity;
+    i32 len;
+};
+
+struct tview
+{
+    const struct token* t;
+    i32 len;
+};
+
+// Minimum matching is 3 segments long
+b8 tview_match_dialogue(const struct tview l)
+{
+    if (l.len < 3)
+    {
+        return FALSE;
+    }
+
+    if (l.t[0].tokenType == SPEAKERSIGN || l.t[0].tokenType == LABEL &&
+        l.t[1].tokenType == COLON &&
+        l.t[2].tokenType == STORY_TEXT)
+    {
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
+{
+    const struct token* t = ts->tokens;
+    const struct token* s = ts->tokens;
+    const struct token* tstart = ts->tokens;
+    const struct token* tend = ts->tokens + ts->len;
+
+    while (t < tend)
+    {
+        printf("parsing token: \n");
+        ts_print_token(ts, t - tstart, FALSE, GREEN_S);
+        struct tview view = { s, t - s + 1 };
+        if (tview_match_dialogue(view))
+        {
+            printf(YELLOW("its a dialogue!!\n"));
+            s = t + 1;
+        }
+        if (s->tokenType == NEWLINE)
+        {
+            s = t + 1;
+        }
+        t++;
+    }
+
+    end;
+}
+
+errc tokens_into_graph()
+{
+    hstr testString = HSTR(
+        "$:this is a sample dialogue\n" 
+        "$:this is another dialogue\n" );
+    hstr filename = HSTR("no file");
+
+    struct tokenStream ts;
+    try(tokenize(&ts, &testString, &filename));
+
+    struct s_graph graph;
+    try(parse_tokens(&graph, &ts));
+
+    ts_free(&ts);
+    end;
 }
 
 // ====================== test registry ======================
@@ -197,7 +279,8 @@ struct testEntry gTests[] = {
     {"testing directives", testing_directives},
     {"tokenizer full test", tokenizer_full},
     {"random utf8 safety",  test_random_utf8},
-    {"debugging token printouts",  token_printouts}
+    {"debugging token printouts",  token_printouts},
+    {"parsing tokens into a graph", tokens_into_graph}
 };
 
 i32 runAllTests()

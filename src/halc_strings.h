@@ -12,7 +12,9 @@ typedef struct hstr hstr;
 
 b8 hstr_match(const hstr* left, const hstr* right);
 void hstr_free(hstr* str);
-errc hstr_decodeUtf8(const hstr* istr, hstr* ostr);
+
+// Gives back a string buffer with normalized string buffers.
+errc hstr_normalize_lf(const hstr* istr, hstr* ostr);
 
 // Do not count the null terminator as part of the length
 #define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1} 
@@ -26,5 +28,25 @@ errc hstr_decodeUtf8(const hstr* istr, hstr* ostr);
 #define BLUE(X) "\033[0;34m" X "\033[0m" 
 #define PURPLE(X) "\033[0;35m" X "\033[0m" 
 #define CYAN(X) "\033[0;36m" X "\033[0m" 
+
+#define RESET_S "\033[0m" 
+
+#define BLACK_S "\033[0;30m" 
+#define RED_S "\033[0;31m" 
+#define GREEN_S "\033[0;32m" 
+#define YELLOW_S "\033[0;33m" 
+#define BLUE_S "\033[0;34m" 
+#define PURPLE_S "\033[0;35m" 
+#define CYAN_S "\033[0;36m" 
+
+enum Color {
+    cBlack,
+    cRed,
+    cGreen,
+    cYellow,
+    cBlue,
+    cPurple,
+    cCyan
+};
 
 #endif

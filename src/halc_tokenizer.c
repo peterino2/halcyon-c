@@ -337,7 +337,7 @@ cleanup:
     end;
 }
 
-errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun)
+errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, const char* color)
 {
     struct token tok = ts->tokens[index];
 
@@ -350,21 +350,23 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun)
         return ERR_OK;
     }
 
-    printf("token at: %.*s \n", 
-        ts->filename.len, ts->filename.buffer);
+    printf("token at: %.*s \n", ts->filename.len, ts->filename.buffer);
 
     printf("line %6d: ", tok.lineNumber);
     printf("%.*s \n", sl.len, sl.buffer);
     printf("             ");
+
     for (i32 i = 0; i < offsets.tok_start; i++)
     {
         printf(" ");
     }
 
+    printf("%s", color);
     for (i32 i = offsets.tok_start; i <= offsets.tok_end; i++)
     {
-        printf(YELLOW("^"));
+        printf("^");
     }
+    printf(RESET_S);
 
     printf("%s(%d)\n",tokenTypeStrings[tok.tokenType], tok.tokenType);
 
