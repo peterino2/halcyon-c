@@ -35,14 +35,19 @@ const char* errcToString(errc code)
     return "UNKNOWN_ERROR_CODE";
 }
 
+b8 gSupressErrors = 0;
+
 void errorPrint(errc code, const char* C, const char* F, int L)
 {
-    if(gErrorFirst)
+    if(!gSupressErrors)
     {
-        fprintf(stderr, "\n");
-        gErrorFirst = FALSE;
+        if(gErrorFirst)
+        {
+            fprintf(stderr, "\n");
+            gErrorFirst = FALSE;
+        }
+        fprintf(stderr, "  > " RED("Error") RED(" \"%s\"(%d):") YELLOW(" '%s'") CYAN(" %s:%d\n"), errcToString(code), code, C, F, L);
     }
-    fprintf(stderr, "  > " RED("Error") RED(" \"%s\"(%d):") YELLOW(" '%s'") CYAN(" %s:%d\n"), errcToString(code), code, C, F, L);
 }
 
 void setupErrorContext()

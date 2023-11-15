@@ -26,6 +26,7 @@ errc testing_directives()
     hstr testFileName = HSTR("no file");
     i32 tokens[] = {
         L_SQBRACK, LABEL, R_SQBRACK, NEWLINE,
+
         AT, LABEL, L_PAREN, 
         LABEL, SPACE,
         LABEL, SPACE,
@@ -33,6 +34,7 @@ errc testing_directives()
         LABEL, SPACE,
         LABEL, R_PAREN,
         NEWLINE,
+
         SPACE,
         AT,
         LABEL,
@@ -200,52 +202,106 @@ struct s_graph {
     i32 len;
 };
 
-struct tview
+struct p_obj
 {
-    const struct token* t;
-    i32 len;
+    b8 x;
 };
 
-// Minimum matching is 3 segments long
-b8 tview_match_dialogue(const struct tview l)
+struct s_parser
 {
-    if (l.len < 3)
+    // ast
+    struct p_obj* ast;
+    u32 ast_cap;
+    u32 ast_len;
+
+    // ast view
+    struct p_obj* ast_view;
+    u32 ast_view_len;
+
+    const struct token* t;
+    const struct token* tend;
+    const struct tokenStream* ts;
+};
+
+errc parser_init(struct s_parser* p, const struct tokenStream* ts)
+{
+    p->ast_cap = 256;
+    halloc(&p->ast, p->ast_cap * sizeof(struct p_obj));
+    p->ast_len = 0;
+
+    p->ast_view = p->ast;
+    p->ast_view_len = 0;
+
+    p->ts = ts;
+    p->t = ts->tokens;
+    p->tend = ts->tokens + ts->len;
+
+cleanup:
+    end;
+}
+
+// Minimum matching is 3 segments long
+b8 parser_match_dialogue(struct s_parser* p)
+{
+    if ((p->tend - p->t) < 3)
     {
         return FALSE;
     }
 
-    if (l.t[0].tokenType == SPEAKERSIGN || l.t[0].tokenType == LABEL &&
-        l.t[1].tokenType == COLON &&
-        l.t[2].tokenType == STORY_TEXT)
+    b8 rv = FALSE;
+
+    if (p->t[0].tokenType == SPEAKERSIGN || p->t[0].tokenType == LABEL &&
+        p->t[1].tokenType == COLON &&
+        p->t[2].tokenType == STORY_TEXT)
     {
-        return TRUE;
+        printf(YELLOW("Dialogue!\n"));
+        p->t += 3 - 1;
+        rv = TRUE;
     }
 
-    return FALSE;
+    return rv;
+}
+
+// Minimum matching is 3 segments long
+b8 parser_match_label(struct s_parser* p)
+{
+    if ((p->tend - p->t) < 3)
+    {
+        return FALSE;
+    }
+
+    b8 rv = FALSE;
+
+    if (p->t[0].tokenType == L_SQBRACK &&
+        p->t[1].tokenType == LABEL &&
+        p->t[2].tokenType == R_SQBRACK)
+    {
+        printf(YELLOW("LABEL!!\n"));
+        p->t += 3 - 1;
+        rv = TRUE;
+    }
+
+    return rv;
 }
 
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 {
-    const struct token* t = ts->tokens;
-    const struct token* s = ts->tokens;
     const struct token* tstart = ts->tokens;
     const struct token* tend = ts->tokens + ts->len;
 
-    while (t < tend)
+    struct s_parser p;
+    try(parser_init(&p, ts));
+
+    while (p.t < tend)
     {
-        printf("parsing token: \n");
-        ts_print_token(ts, t - tstart, FALSE, GREEN_S);
-        struct tview view = { s, t - s + 1 };
-        if (tview_match_dialogue(view))
+        ts_print_token(ts, p.t - tstart, FALSE, GREEN_S);
+        if(parser_match_dialogue(&p))
         {
-            printf(YELLOW("its a dialogue!!\n"));
-            s = t + 1;
         }
-        if (s->tokenType == NEWLINE)
+        else if(parser_match_label(&p)) 
         {
-            s = t + 1;
         }
-        t++;
+        p.t++;
     }
 
     end;
@@ -254,6 +310,7 @@ errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 errc tokens_into_graph()
 {
     hstr testString = HSTR(
+        "[label]\n"
         "$:this is a sample dialogue\n" 
         "$:this is another dialogue\n" );
     hstr filename = HSTR("no file");
@@ -267,6 +324,7 @@ errc tokens_into_graph()
     ts_free(&ts);
     end;
 }
+
 
 // ====================== test registry ======================
 struct testEntry {
