@@ -11,6 +11,15 @@ b8 gAllowTrackAllocations;
 const char* gContextString = "Unnamed";
 #endif
 
+struct allocatorStats gAllocatorStats;
+
+static void initAllocatorStats()
+{
+    gAllocatorStats.allocations = 0;
+    gAllocatorStats.allocatedSize = 0;
+    gAllocatorStats.peakAllocatedSize = 0;
+}
+
 void trackAllocs(const char* contextString) 
 {
 #if TRACK_ALLOCATIONS
@@ -23,11 +32,23 @@ void trackAllocs(const char* contextString)
 #endif
 }
 
-void untrackAllocs() 
+
+errc untrackAllocs(struct allocatorStats* outTrackedAllocationStats)
 {
 #if TRACK_ALLOCATIONS
     gTrackAllocations = FALSE;
 #endif
+
+    if(gAllowTrackAllocations)
+    {
+        if(gAllocatorStats.allocations > 0)
+        {
+            fprintf(stderr, "untrack called, leaked memory: %lld bytes in %lld allocations", gAllocatorStats.allocatedSize, gAllocatorStats.peakAllocatedSize);
+            raise(ERR_TEST_LEAKED_MEMORY);
+        }
+    }
+
+    end;
 }
 
 errc setupDefaultAllocator() 
@@ -40,9 +61,10 @@ errc setupDefaultAllocator()
     end;
 }
 
-void enableAllocationTracking()
+errc enableAllocationTracking()
 {
     gAllowTrackAllocations = TRUE;
+    end;
 }
 
 errc setupCustomDefaultAllocator(
@@ -51,16 +73,18 @@ errc setupCustomDefaultAllocator(
 {
     gDefaultAllocator.malloc_fn = malloc;
     gDefaultAllocator.free_fn = free;
+    gTrackAllocations = FALSE;
+    gAllowTrackAllocations = FALSE;
 
     end;
 }
 
-errc halloc_advanced(void** ptr, size_t size)
+errc hallocAdvanced(void** ptr, size_t size)
 {
     *ptr = gDefaultAllocator.malloc_fn(size);
     if(!*ptr)
     {
-        herror(ERR_OUT_OF_MEMORY);
+        raiseCleanup(ERR_OUT_OF_MEMORY);
     }
 
 #if TRACK_ALLOCATIONS

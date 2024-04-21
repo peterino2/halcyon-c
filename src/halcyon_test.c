@@ -127,7 +127,6 @@ errc tokenizer_full()
     assert(arrayCount(tokens) == ts.len);
     for (int i = 0; i < ts.len; i += 1)
     {
-        // printf("expected: %d %s got: %s\n", i, tokenTypeStrings[tokens[i]], tokenTypeStrings[ts.tokens[i].tokenType]);
         assert(tokens[i] == ts.tokens[i].tokenType);
     }
 
@@ -159,7 +158,7 @@ errc test_random_utf8()
     try(loadAndDecodeFromFile(&content, &filename));
 
     struct tokenStream ts;
-    // supressErrors();
+    supressErrors();
     assert(tokenize(&ts, &content, &filename) == ERR_UNRECOGNIZED_TOKEN);
 
 cleanup:
@@ -348,7 +347,7 @@ i32 runAllTests()
     for(int i = 0; i < sizeof(gTests) / sizeof(gTests[0]); i += 1)
     {
         gErrorCatch = ERR_OK;
-        printf("Running test: ... %s", gTests[i].testName);
+        printf("Running test: ... %s\n", gTests[i].testName);
         setupErrorContext();
         trackAllocs(gTests[i].testName);
         if(gTests[i].testFunc() != ERR_OK)
@@ -361,6 +360,7 @@ i32 runAllTests()
             passes += 1;
             printf("\r                                                    \r");
         }
+        unSupressErrors();
         untrackAllocs();
     }
 

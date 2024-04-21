@@ -1,6 +1,14 @@
 #ifndef _HALC_TYPES_H_
 #define _HALC_TYPES_H_
 
+#ifdef __cplusplus
+#define EXTERN_C_BEGIN extern "C" {
+#define EXTERN_C_END }
+#else 
+#define EXTERN_C_BEGIN
+#define EXTERN_C_END
+#endif
+
 typedef char b8;
 typedef char i8;
 typedef unsigned char u8;

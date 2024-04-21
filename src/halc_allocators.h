@@ -4,7 +4,19 @@
 #include <stdlib.h>
 #include "halc_errors.h"
 
+EXTERN_C_BEGIN
+
+#ifndef TRACK_ALLOCATIONS
 #define TRACK_ALLOCATIONS 1
+#endif
+
+
+// == statistics ==
+struct allocatorStats{
+    i32 allocations;
+    i64 allocatedSize;
+    i64 peakAllocatedSize;
+};
 
 // ==================== Allocators ======================
 // mostly an internal library
@@ -20,14 +32,18 @@ struct allocator{
 extern struct allocator gDefaultAllocator;
 
 errc setupCustomDefaultAllocator(void* (*malloc_fn) (size_t), void (*free_fn) (void*));
-errc halloc_advanced(void** ptr, size_t size);
+errc hallocAdvanced(void** ptr, size_t size);
 
-#define halloc(ptr, size) tryCleanup(halloc_advanced((void**) ptr, size))
+#define halloc(ptr, size) tryCleanup(hallocAdvanced((void**) ptr, size))
 
 void hfree(void* ptr);
 void trackAllocs(const char* contextString);
-void untrackAllocs();
+errc untrackAllocs(struct allocatorStats* outTrackedAllocationStats);
 void printMemoryStatistics();
-void enableAllocationTracking();
+errc enableAllocationTracking();
+
+
+
+EXTERN_C_END
 
 #endif

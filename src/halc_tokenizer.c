@@ -49,7 +49,6 @@ errc ts_push(struct tokenStream* ts, struct token* tok)
 {
     if(ts->len >= ts->capacity)
     {
-        fprintf(stderr, "resizing!\n");
         try(ts_resize(ts));
     }
 
@@ -205,7 +204,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
             try(ts_push(ts, &newToken));
             r += view.len;
             if (r > rEnd)
-                herror(ERR_TOKENIZER_POINTER_OVERFLOW);
+                raiseCleanup(ERR_TOKENIZER_POINTER_OVERFLOW);
             while (*r == ' ') r++;
             r--;
             shouldBreak = TRUE;
@@ -268,7 +267,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 
         if (!shouldBreak)
         {
-            herror(ERR_UNRECOGNIZED_TOKEN);
+            raiseCleanup(ERR_UNRECOGNIZED_TOKEN);
         }
 
         r += 1;
@@ -298,8 +297,8 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
     const char* l = tok->tokenView.buffer;
     const char* sEnd = source->buffer + source->len;
 
-    if (l > sEnd) herror(ERR_TOKEN_OUT_OF_RANGE);
-    if (l < source->buffer) herror(ERR_TOKEN_OUT_OF_RANGE);
+    if (l > sEnd) raiseCleanup(ERR_TOKEN_OUT_OF_RANGE);
+    if (l < source->buffer) raiseCleanup(ERR_TOKEN_OUT_OF_RANGE);
 
     if (*tok->tokenView.buffer == '\n')
     {

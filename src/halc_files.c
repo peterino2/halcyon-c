@@ -25,7 +25,7 @@ errc loadFile(hstr* out, const hstr* filePath)
     if(!file)
     {
         fprintf(stderr, "\n  Unable to open file: %s\n", filePath->buffer);
-        herror(ERR_UNABLE_TO_OPEN_FILE);
+        raise(ERR_UNABLE_TO_OPEN_FILE);
     }
 
     // seek for the size of the file

@@ -9,26 +9,40 @@ const char* errcToString(errc code)
 {
     switch(code)
     {   
+        // not an error
         case ERR_OK:
-            return "Ok, this is not an error";
+            return "Ok, this is not an error. You should never see this message.";
+
+        // core and memory errors
         case ERR_OUT_OF_MEMORY:
-            return "Out of Memory";
-        case ERR_UNKNOWN:
-            return "Unknown Error";
+            return "Attempted out of Memory access";
+        case ERR_DOUBLE_FREE:
+            return "Attempted to free memory that was already freed";
+
+        // string errors
         case ERR_STR_BAD_RESIZE:
             return "Bad String Resize arguments, new size must be equal or larger.";
+
+        // File IO errors
         case ERR_UNABLE_TO_OPEN_FILE:
             return "Unable to open file";
         case ERR_FILE_SEEK_ERROR:
             return "File Seek error";
+
+        // assertions
         case ERR_ASSERTION_FAILED:
             return "Assertion failed";
+
+        // tokenizer errors
         case ERR_TOKENIZER_POINTER_OVERFLOW:
             return "Pointer Ran off the end while tokenizing";
         case ERR_UNRECOGNIZED_TOKEN:
             return "Unrecognized token";
         case ERR_TOKEN_OUT_OF_RANGE:
             return "Token is not part of this source file, pointer not in range.";
+        // testing
+        case ERR_TEST_LEAKED_MEMORY:
+            return "Memory tracking finished but allocations are outstanding. This indicates code path will leak memory at runtime";
         default: 
             break;
     }
@@ -59,6 +73,11 @@ void enableErrors()
 void supressErrors()
 {
     gSupressErrors = TRUE;
+}
+
+void unSupressErrors()
+{
+    gSupressErrors = FALSE;
 }
 
 void setupErrorContext()
