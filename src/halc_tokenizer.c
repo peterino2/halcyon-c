@@ -268,7 +268,6 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 
         if (!shouldBreak)
         {
-            fprintf(stderr, "Unknown character: %c\n", *r);
             herror(ERR_UNRECOGNIZED_TOKEN);
         }
 

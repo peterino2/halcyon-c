@@ -56,4 +56,6 @@ extern b8 gErrorFirst;
 
 void setupErrorContext();
 
+void supressErrors();
+
 #endif

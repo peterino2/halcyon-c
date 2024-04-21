@@ -159,6 +159,7 @@ errc test_random_utf8()
     try(loadAndDecodeFromFile(&content, &filename));
 
     struct tokenStream ts;
+    // supressErrors();
     assert(tokenize(&ts, &content, &filename) == ERR_UNRECOGNIZED_TOKEN);
 
 cleanup:
@@ -286,20 +287,19 @@ b8 parser_match_label(struct s_parser* p)
 
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 {
-    const struct token* tstart = ts->tokens;
-    const struct token* tend = ts->tokens + ts->len;
-
     struct s_parser p;
     try(parser_init(&p, ts));
 
-    while (p.t < tend)
+    while (p.t < p.tend)
     {
-        ts_print_token(ts, p.t - tstart, FALSE, GREEN_S);
+        // go through each possiblity of a match, and check if it is each one.
         if(parser_match_dialogue(&p))
         {
+            // output a dialogue node to the graph
         }
         else if(parser_match_label(&p)) 
         {
+            // output a label node to the graph
         }
         p.t++;
     }
@@ -349,6 +349,7 @@ i32 runAllTests()
     {
         gErrorCatch = ERR_OK;
         printf("Running test: ... %s", gTests[i].testName);
+        setupErrorContext();
         trackAllocs(gTests[i].testName);
         if(gTests[i].testFunc() != ERR_OK)
         {

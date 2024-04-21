@@ -2,7 +2,8 @@
 #include "halc_errors.h"
 #include "halc_strings.h"
 
-errc gErrorCatch = ERR_OK; b8 gErrorFirst = FALSE;
+errc gErrorCatch = ERR_OK;
+b8 gErrorFirst = FALSE;
 
 const char* errcToString(errc code)
 {
@@ -35,7 +36,7 @@ const char* errcToString(errc code)
     return "UNKNOWN_ERROR_CODE";
 }
 
-b8 gSupressErrors = 0;
+b8 gSupressErrors;
 
 void errorPrint(errc code, const char* C, const char* F, int L)
 {
@@ -50,8 +51,19 @@ void errorPrint(errc code, const char* C, const char* F, int L)
     }
 }
 
+void enableErrors()
+{
+    gSupressErrors = FALSE;
+}
+
+void supressErrors()
+{
+    gSupressErrors = TRUE;
+}
+
 void setupErrorContext()
 {
     gErrorCatch = ERR_OK;
     gErrorFirst = TRUE;
+    gSupressErrors = FALSE;
 }
