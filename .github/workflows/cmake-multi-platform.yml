@@ -39,6 +39,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - run: sudo apt update
     - run: sudo apt install -y valgrind
 
     - name: Set reusable strings
