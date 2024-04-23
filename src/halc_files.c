@@ -61,7 +61,7 @@ errc loadFile(hstr* out, const hstr* filePath)
 
     out->buffer = buffer;
     out->len = (u32) bytesRead;
-    out->cap = fileSize;
+    out->cap = (u32) fileSize;
 
     fclose(file);
     end;

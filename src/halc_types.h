@@ -23,10 +23,20 @@ typedef unsigned char u8;
 typedef int i32;
 typedef unsigned int u32;
 
+#ifdef __linux__
+
+typedef long i64;
+typedef long isize;
+typedef unsigned long u64;
+typedef unsigned long usize;
+
+#elif _WIN32
+
 typedef long long i64;
 typedef long long isize;
 typedef unsigned long long u64;
 typedef unsigned long long usize;
+#endif
 
 #ifndef __func__
 #define __func__ __FUNCTION__

@@ -42,7 +42,12 @@ errc untrackAllocs(struct allocatorStats* outTrackedAllocationStats)
 
         if(gAllocatorStats.allocations > 0)
         {
-            fprintf(stderr, "untrack called, leaked memory: %" PRId64 " bytes in %" PRId32 " allocations (peakAllocatedSize: %" PRId64 ")\n", gAllocatorStats.allocatedSize, gAllocatorStats.allocations, gAllocatorStats.peakAllocatedSize);
+            fprintf(stderr, "untrack called, leaked memory: %" PRId64 
+                    " bytes in %" PRId32 
+                    " allocations (peakAllocatedSize: %" PRId64 ")\n", 
+                    gAllocatorStats.allocatedSize,
+                    gAllocatorStats.allocations,
+                    gAllocatorStats.peakAllocatedSize);
             raise(ERR_TEST_LEAKED_MEMORY);
         }
 
@@ -97,7 +102,7 @@ errc hallocAdvanced(void** ptr, size_t size, const char* file, i32 lineNumber, c
 #if TRACK_ALLOCATIONS
     if(gTrackAllocations)
     {
-        fprintf(stderr, YELLOW("alloc(%lld)->\"0x%p\" # %s %s() %s:%d\n"), size, *ptr, gContextString, func, file, lineNumber);
+        fprintf(stderr, YELLOW("alloc(%" PRId64 ")->\"0x%p\" # %s %s() %s:%d\n"), size, *ptr, gContextString, func, file, lineNumber);
     }
 #endif
 
