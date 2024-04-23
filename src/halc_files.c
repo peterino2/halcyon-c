@@ -43,7 +43,7 @@ errc loadFile(hstr* out, const hstr* filePath)
     }
 
     char* buffer;
-    halloc(&buffer, fileSize);
+    halloc(&buffer, fileSize); // FIXME_GOOD
 
     if(fseek(file, 0, SEEK_SET) != 0)
     {
@@ -61,13 +61,13 @@ errc loadFile(hstr* out, const hstr* filePath)
 
     out->buffer = buffer;
     out->len = (u32) bytesRead;
+    out->cap = fileSize;
 
     fclose(file);
     end;
     
 exitCloseFile:
     fclose(file);
-cleanup:
     end;
 }
 

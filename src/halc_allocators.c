@@ -1,5 +1,7 @@
 #include "halc_allocators.h"
+#include "halc_strings.h"
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -35,24 +37,29 @@ void trackAllocs(const char* contextString)
 
 errc untrackAllocs(struct allocatorStats* outTrackedAllocationStats)
 {
+
+    *outTrackedAllocationStats = gAllocatorStats;
+
+        if(gAllocatorStats.allocations > 0)
+        {
+            fprintf(stderr, "untrack called, leaked memory: %" PRId64 " bytes in %" PRId32 " allocations (peakAllocatedSize: %" PRId64 ")\n", gAllocatorStats.allocatedSize, gAllocatorStats.allocations, gAllocatorStats.peakAllocatedSize);
+            raise(ERR_TEST_LEAKED_MEMORY);
+        }
+
+    gAllocatorStats.allocations = 0;
+    gAllocatorStats.allocatedSize = 0;
+    gAllocatorStats.peakAllocatedSize = 0;
+
 #if TRACK_ALLOCATIONS
     gTrackAllocations = FALSE;
 #endif
-
-    if(gAllowTrackAllocations)
-    {
-        if(gAllocatorStats.allocations > 0)
-        {
-            fprintf(stderr, "untrack called, leaked memory: %lld bytes in %lld allocations", gAllocatorStats.allocatedSize, gAllocatorStats.peakAllocatedSize);
-            raise(ERR_TEST_LEAKED_MEMORY);
-        }
-    }
 
     end;
 }
 
 errc setupDefaultAllocator() 
 {
+    initAllocatorStats();
     gDefaultAllocator.malloc_fn = malloc;
     gDefaultAllocator.free_fn = free;
     gTrackAllocations = FALSE;
@@ -79,7 +86,7 @@ errc setupCustomDefaultAllocator(
     end;
 }
 
-errc hallocAdvanced(void** ptr, size_t size)
+errc hallocAdvanced(void** ptr, size_t size, const char* file, i32 lineNumber, const char* func)
 {
     *ptr = gDefaultAllocator.malloc_fn(size);
     if(!*ptr)
@@ -90,22 +97,33 @@ errc hallocAdvanced(void** ptr, size_t size)
 #if TRACK_ALLOCATIONS
     if(gTrackAllocations)
     {
-        fprintf(stderr, "alloc->\"0x%p\" # %s\n", *ptr, gContextString);
+        fprintf(stderr, YELLOW("alloc(%lld)->\"0x%p\" # %s %s() %s:%d\n"), size, *ptr, gContextString, func, file, lineNumber);
     }
 #endif
+
+    gAllocatorStats.allocations += 1;
+    gAllocatorStats.allocatedSize += size;
+    if(gAllocatorStats.allocatedSize > gAllocatorStats.peakAllocatedSize)
+    {
+        gAllocatorStats.peakAllocatedSize = gAllocatorStats.allocatedSize;
+    }
 
 cleanup:
     end;
 }
 
-void hfree(void* ptr)
+// ======================= hash allocator =================
+
+void hfreeAdvanced(void* ptr, size_t size, const char* file, i32 lineNumber, const char* func)
 {
 #if TRACK_ALLOCATIONS
     if(gTrackAllocations)
     {
-        fprintf(stderr, "free->\"0x%p\" # %s\n", ptr, gContextString);
+        fprintf(stderr, GREEN("free(%lld)->\"0x%p\" # %s %s() %s:%d\n"),size, ptr, gContextString, func, file, lineNumber);
     }
 #endif
+    gAllocatorStats.allocatedSize -= size;
+    gAllocatorStats.allocations -= 1;
     gDefaultAllocator.free_fn(ptr);
 }
 

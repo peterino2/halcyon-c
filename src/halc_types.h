@@ -28,4 +28,8 @@ typedef long long isize;
 typedef unsigned long long u64;
 typedef unsigned long long usize;
 
+#ifndef __func__
+#define __func__ __FUNCTION__
+#endif
+
 #endif

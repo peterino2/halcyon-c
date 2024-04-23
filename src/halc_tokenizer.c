@@ -10,12 +10,11 @@ errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
 {
     ts->len = 0;
     // I'm estimating an average of 5 tokens every 80 characters.
-    // Then doubling that. we can be more conservative but memory feels cheap these days.
+    // Then doubling that. We can be far more conservative but memory feels cheap these days.
     
     ts->capacity = ((source_length_hint / 40) + 1) * 8 * 2;
     halloc(&ts->tokens, ts->capacity * sizeof(struct token));
 
-cleanup:
     end;
 }
 
@@ -28,7 +27,7 @@ errc ts_resize(struct tokenStream* ts)
     ts->capacity *= 2;
     trackAllocs("resize event");
     struct token* newTokens;
-    halloc(&newTokens, ts->capacity * sizeof(struct token));
+    halloc(&newTokens, ts->capacity * sizeof(struct token)); // FIXME_GOOD
 
     // copy over data
     for (i32 i = 0; i < oldCapacity; i += 1)
@@ -37,11 +36,10 @@ errc ts_resize(struct tokenStream* ts)
     }
     
     // free old array
-    hfree(oldTokens);
+    hfree(oldTokens, sizeof(struct token));
 
     ts->tokens = newTokens;
 
-cleanup:
     end;
 }
 
@@ -284,7 +282,7 @@ cleanup:
 
 void ts_free(struct tokenStream* ts)
 {
-    hfree(ts->tokens);
+    hfree(ts->tokens, sizeof(struct tokenStream) * ts->capacity);
 }
 
 errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_line_offsets* offsets)

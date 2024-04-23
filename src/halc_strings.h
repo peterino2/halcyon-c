@@ -7,7 +7,9 @@
 struct hstr{
     char* buffer;
     u32 len;
+    u32 cap;
 };
+
 typedef struct hstr hstr;
 
 b8 hstr_match(const hstr* left, const hstr* right);
@@ -17,7 +19,7 @@ void hstr_free(hstr* str);
 errc hstr_normalize_lf(const hstr* istr, hstr* ostr);
 
 // Do not count the null terminator as part of the length
-#define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1} 
+#define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1, 0} 
 
 #define arrayCount(X) sizeof(X) / sizeof(X[0])
 

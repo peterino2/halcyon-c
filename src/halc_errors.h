@@ -5,11 +5,8 @@
 
 EXTERN_C_BEGIN
 
-
 // =================== halc_errors =====================================
 //  errors in C are really annoying
-//
-//  im basically lifting zig's concept of an error return trace
 //
 //  in this way "error-able" functions are functions which return an errc
 //
@@ -35,12 +32,13 @@ EXTERN_C_BEGIN
 //
 // any errorable function can be called and their error value can be checked
 // 
-// if(myErrorableFunction() != ERR_OK) // != 0, or !func() are ok as well.
+// if(myErrorableFunction() != ERR_OK) // != 0, or func() are ok as well.
 // {
 //      printf("myErrorableFunction failed, handling the error case here");
 // }
 //
-//  however if you yourself are an errorable function you can use the macro 
+//
+//  however if the calling convention is also an errorable function you can use the macro
 //  'try(...)' which implements an incredibly helpful default handler for 
 //  calling error-able function functions.
 //
@@ -60,24 +58,69 @@ EXTERN_C_BEGIN
 // there is also _Cleanup() versions of both raise() and try()
 //
 // which kick the code execution to a cleanup label in your function, 
-// useful if you want to leave some code in to back-out side effects.
-//
+// useful if you want to leave some code in to back-out side effects on error.
 //
 // eg:
 //
 // errc myErrorableFunction(const char* openFile, int expectedSize)
 // {
-//      char* bufferContents = malloc(expectedSize);
+//      char* bufferContents = halloc(expectedSize);
 //      int bytesRead = readFileIntoBuffer(openFile, bufferContents, expectedSize);
 //
-//      assert()
 //      if(bytesRead != expectedSize )
 //      {
-//          
-//          raise(ERR_UNABLE_TO_OPEN_FILE);
+//          raiseCleanup(ERR_UNABLE_TO_OPEN_FILE);
 //      }
+//
+//  cleanup:
+//     hfree(bufferContents);
+//     end;
 // }
+//
+// you'll notice a limitation here, what if we have more than failable operations 
+// that require cleanup? 
+//
+// eg. 
+//
+//  try(createFile(&file1, ..))
+//  tryCleanup(createFile(&file2, ..))
+//  tryCleanup(createFile(&file3, ..)) // if this one fails file2 will be leaked.
+//  destroyFile(file3);
+//  destroyFile(file2);
+// cleanup:
+//  destroyFile(file1);
 //  
+// this is indeed a limitation. these kinds of situations are not easy to deal with in C.
+// As the language itself lacks destructors or a defer mechanisim. For this reason, a 
+// code smell during code review of this library is the usage of more than two failable
+// initializers in one function.
+//
+// for situations like that I reccomend manual checking of errcs returned from each 
+// function along with raise() and manual cleanup is preferred.
+//
+// eg.
+//
+// errc error;
+//
+// if(error = !createFile(&file1, ..))
+// {
+//    raise(error);
+// }
+//
+// if(error = createFile(&file2, ..))
+// {
+//    destroyFile(file1);
+//    raise(error);
+// }
+//
+// if(error = createFile(&file3, ..))
+// {
+//    destroyFile(file1);
+//    destroyFile(file2);
+//    raise(error);
+// }
+//
+// end;
 // 
 // ======================================================================
 
@@ -128,6 +171,7 @@ void errorPrint(errc code, const char* C, const char* F, int L);
 } \
 
 #define end return gErrorCatch;
+#define end_ok do{gErrorCatch = ERR_OK;}while(0)
 
 // use if your code has a cleanup: section
 #define raiseCleanup(X) do{ \
@@ -144,7 +188,7 @@ void errorPrint(errc code, const char* C, const char* F, int L);
 
 #define assert(X) if(!(X)) {raise(ERR_ASSERTION_FAILED); }
 
-#define assertCleanup(X) if(!(X)) {raiseCleanup(ERR_ASSERTION_FAILED); }
+#define assertCleanup(X) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n"); raiseCleanup(ERR_ASSERTION_FAILED); }
 
 extern errc gErrorCatch;
 extern b8 gErrorFirst;

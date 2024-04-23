@@ -34,7 +34,7 @@ void hstr_free(hstr* str)
     {
         return;
     }
-    hfree(str->buffer);
+    hfree(str->buffer, str->cap);
     str->len = 0;
     str->buffer = NULL;
 }
@@ -42,8 +42,9 @@ void hstr_free(hstr* str)
 errc hstr_normalize_lf(const hstr* istr, hstr* ostr)
 {
     // Allocate working buffer
-    halloc(&ostr->buffer, istr->len);
+    halloc(&ostr->buffer, istr->len); // FIXME_GOOD
     ostr->len = 0;
+    ostr->cap = istr->len;
 
     char* w = ostr->buffer;
     usize wLen = ostr->len;
@@ -70,6 +71,5 @@ errc hstr_normalize_lf(const hstr* istr, hstr* ostr)
 
     ostr->len = (u32)(w - ostr->buffer);
 
-cleanup:
     end;
 }

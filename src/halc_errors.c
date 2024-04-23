@@ -40,9 +40,10 @@ const char* errcToString(errc code)
             return "Unrecognized token";
         case ERR_TOKEN_OUT_OF_RANGE:
             return "Token is not part of this source file, pointer not in range.";
+
         // testing
         case ERR_TEST_LEAKED_MEMORY:
-            return "Memory tracking finished but allocations are outstanding. This indicates code path will leak memory at runtime";
+            return "Memory tracking finished but allocations are outstanding.\n This indicates code path will leak memory at runtime";
         default: 
             break;
     }

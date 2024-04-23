@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "halc_types.h"
 #include "halc_errors.h"
@@ -51,10 +52,10 @@ errc testing_directives()
 
     for(i32 i = 0; i < ts.len; i += 1)
     { 
-        assert(ts.tokens[i].tokenType == tokens[i]);
+        assertCleanup(ts.tokens[i].tokenType == tokens[i]);
     }
 
-    assert(ts.len == arrayCount(tokens));
+    assertCleanup(ts.len == arrayCount(tokens));
 
 cleanup:
     ts_free(&ts);
@@ -69,7 +70,7 @@ errc tokenizer_full()
     try(loadAndDecodeFromFile(&fileContents, &filename));
     
     struct tokenStream ts;
-    try(tokenize(&ts, &fileContents, &filename));
+    tryCleanup(tokenize(&ts, &fileContents, &filename));
 
     i32 tokens[] = {
         L_SQBRACK,
@@ -124,26 +125,26 @@ errc tokenizer_full()
         AT, LABEL, NEWLINE
     };
 
-    assert(arrayCount(tokens) == ts.len);
+    assertCleanup(arrayCount(tokens) == ts.len);
     for (int i = 0; i < ts.len; i += 1)
     {
-        assert(tokens[i] == ts.tokens[i].tokenType);
+        assertCleanup(tokens[i] == ts.tokens[i].tokenType);
     }
 
     const hstr label1 = HSTR("hello");
-    assert(hstr_match(&label1, &ts.tokens[1].tokenView));
+    assertCleanup(hstr_match(&label1, &ts.tokens[1].tokenView));
     const hstr label2 = HSTR("question");
-    assert(hstr_match(&label2, &ts.tokens[10].tokenView));
+    assertCleanup(hstr_match(&label2, &ts.tokens[10].tokenView));
     const hstr comment1 = HSTR("#first comment");
-    assert(hstr_match(&comment1, &ts.tokens[7].tokenView));
+    assertCleanup(hstr_match(&comment1, &ts.tokens[7].tokenView));
     const hstr storyText = HSTR("I'm going to ask you a question.");
-    assert(hstr_match(&storyText, &ts.tokens[15].tokenView));
+    assertCleanup(hstr_match(&storyText, &ts.tokens[15].tokenView));
 
-    assert(ts.tokens[0].lineNumber == 1);
-    assert(ts.tokens[4].lineNumber == 2);
-    assert(ts.tokens[8].lineNumber == 2);
-    assert(ts.tokens[9].lineNumber == 3);
-    assert(ts.tokens[104].lineNumber == 14);
+    assertCleanup(ts.tokens[0].lineNumber == 1);
+    assertCleanup(ts.tokens[4].lineNumber == 2);
+    assertCleanup(ts.tokens[8].lineNumber == 2);
+    assertCleanup(ts.tokens[9].lineNumber == 3);
+    assertCleanup(ts.tokens[104].lineNumber == 14);
 
 cleanup:
     ts_free(&ts);
@@ -157,13 +158,21 @@ errc test_random_utf8()
     hstr content;
     try(loadAndDecodeFromFile(&content, &filename));
 
-    struct tokenStream ts;
     supressErrors();
-    assert(tokenize(&ts, &content, &filename) == ERR_UNRECOGNIZED_TOKEN);
+
+    struct tokenStream ts;
+    errc errorcode = tokenize(&ts, &content, &filename);
+
+    unSupressErrors();
+
+    assertCleanup(errorcode == ERR_UNRECOGNIZED_TOKEN);
+
+    hstr_free(&content);
+    end_ok;
 
 cleanup:
     hstr_free(&content);
-    return ERR_OK;
+    end;
 }
 
 b8 gPrintouts;
@@ -236,12 +245,16 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
     p->t = ts->tokens;
     p->tend = ts->tokens + ts->len;
 
-cleanup:
     end;
 }
 
+void parser_free(struct  s_parser* p)
+{
+    hfree(p->ast, sizeof(struct p_obj) * p->ast_cap);
+}
+
 // Minimum matching is 3 segments long
-b8 parser_match_dialogue(struct s_parser* p)
+b8 parser_matchDialogue(struct s_parser* p)
 {
     if ((p->tend - p->t) < 3)
     {
@@ -254,7 +267,7 @@ b8 parser_match_dialogue(struct s_parser* p)
         p->t[1].tokenType == COLON &&
         p->t[2].tokenType == STORY_TEXT)
     {
-        printf(YELLOW("Dialogue!\n"));
+        // printf(YELLOW("Dialogue!\n"));
         p->t += 3 - 1;
         rv = TRUE;
     }
@@ -263,7 +276,7 @@ b8 parser_match_dialogue(struct s_parser* p)
 }
 
 // Minimum matching is 3 segments long
-b8 parser_match_label(struct s_parser* p)
+b8 parser_matchLabel(struct s_parser* p)
 {
     if ((p->tend - p->t) < 3)
     {
@@ -276,7 +289,7 @@ b8 parser_match_label(struct s_parser* p)
         p->t[1].tokenType == LABEL &&
         p->t[2].tokenType == R_SQBRACK)
     {
-        printf(YELLOW("LABEL!!\n"));
+        // printf(YELLOW("LABEL!!\n"));
         p->t += 3 - 1;
         rv = TRUE;
     }
@@ -292,16 +305,18 @@ errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
     while (p.t < p.tend)
     {
         // go through each possiblity of a match, and check if it is each one.
-        if(parser_match_dialogue(&p))
+        if(parser_matchDialogue(&p))
         {
             // output a dialogue node to the graph
         }
-        else if(parser_match_label(&p)) 
+        else if(parser_matchLabel(&p)) 
         {
             // output a label node to the graph
         }
         p.t++;
     }
+
+    parser_free(&p);
 
     end;
 }
@@ -321,6 +336,7 @@ errc tokens_into_graph()
     try(parse_tokens(&graph, &ts));
 
     ts_free(&ts);
+    // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));
     end;
 }
 
@@ -331,13 +347,15 @@ struct testEntry {
     errc (*testFunc)();
 };
 
+#define TEST_IMPL(X, DESC) {#X ": " DESC, X}
+
 struct testEntry gTests[] = {
-    {"simple file loading test", loading_file_test},
-    {"testing directives", testing_directives},
-    {"tokenizer full test", tokenizer_full},
-    {"random utf8 safety",  test_random_utf8},
-    {"debugging token printouts",  token_printouts},
-    {"parsing tokens into a graph", tokens_into_graph}
+    TEST_IMPL(loading_file_test, "simple file loading test"),
+    TEST_IMPL(testing_directives, "testing tokenization of directives"),
+    TEST_IMPL(tokenizer_full, "tokenizer full test"),
+    TEST_IMPL(test_random_utf8, "testing safety on random utf8 strings being passed in"),
+    TEST_IMPL(token_printouts, "debugging token printouts"),
+    TEST_IMPL(tokens_into_graph, "parsing tokens into a graph")
 };
 
 i32 runAllTests()
@@ -347,12 +365,24 @@ i32 runAllTests()
     for(int i = 0; i < sizeof(gTests) / sizeof(gTests[0]); i += 1)
     {
         gErrorCatch = ERR_OK;
-        printf("Running test: ... %s\n", gTests[i].testName);
+        printf("Running test: ... %s  ", gTests[i].testName);
         setupErrorContext();
         trackAllocs(gTests[i].testName);
-        if(gTests[i].testFunc() != ERR_OK)
+        errc errorCode = gTests[i].testFunc();
+
+        struct allocatorStats stats;
+        errc errorCodeFromUntrack = untrackAllocs(&stats);
+
+        if (!errorCode && errorCodeFromUntrack)
         {
-            printf("Test Failed! %s\n", gTests[i].testName);
+            errorCode = errorCodeFromUntrack;
+        }
+
+        printf("stats - memory remaining at end of test: %0.3lfK (peak: %" "0.3lf" "K)\n", ((double) stats.allocatedSize) / 1000.0, ((double)stats.peakAllocatedSize) / 1000.0);
+
+        if(errorCode != ERR_OK)
+        {
+            fprintf(stderr, "> " RED("Test Failed") ": " YELLOW("%s") "\n", gTests[i].testName);
             failures += 1;
         }
         else 
@@ -361,7 +391,6 @@ i32 runAllTests()
             printf("\r                                                    \r");
         }
         unSupressErrors();
-        untrackAllocs();
     }
 
     printf("total: %d\npassed: %d\nfailed: %d\n", passes + failures, passes, failures);
@@ -385,6 +414,7 @@ int main(int argc, char** argv)
 
     const hstr trackAllocs = HSTR("-a");
     const hstr doPrintouts = HSTR("--printout");
+    const hstr testOut = HSTR("--printout");
     gPrintouts = FALSE;
 
     for(i32 i = 0; i < argc; i += 1)
