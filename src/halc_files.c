@@ -1,3 +1,5 @@
+#include <inttypes.h>
+
 #include "halc_files.h"
 #include "halc_allocators.h"
 #include "halc_strings.h"
@@ -55,7 +57,7 @@ errc loadFile(hstr* out, const hstr* filePath)
     if(bytesRead != fileSize)
     {
         fprintf(stderr,
-            "read file but didn't get the right size? expected %lld got %lld", 
+            "read file but didn't get the right size? expected %" PRId64 " got %" PRId64, 
             fileSize, bytesRead);
     }
 
