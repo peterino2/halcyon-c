@@ -30,12 +30,20 @@ typedef long isize;
 typedef unsigned long u64;
 typedef unsigned long usize;
 
+#elif __APPLE__
+
+typedef long long i64;
+typedef long isize;
+typedef unsigned long long u64;
+typedef unsigned long usize;
+
 #elif _WIN32
 
 typedef long long i64;
 typedef long long isize;
 typedef unsigned long long u64;
 typedef unsigned long long usize;
+
 #endif
 
 #ifndef __func__

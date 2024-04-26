@@ -58,7 +58,7 @@ errc loadFile(hstr* out, const hstr* filePath)
     {
         fprintf(stderr,
             "read file but didn't get the right size? expected %" PRId64 " got %" PRId64, 
-            fileSize, bytesRead);
+            (i64)fileSize, (i64)bytesRead);
     }
 
     out->buffer = buffer;

@@ -102,7 +102,7 @@ errc hallocAdvanced(void** ptr, size_t size, const char* file, i32 lineNumber, c
 #if TRACK_ALLOCATIONS
     if(gTrackAllocations)
     {
-        fprintf(stderr, YELLOW("alloc(%" PRId64 ")->\"0x%p\" # %s %s() %s:%d\n"), size, *ptr, gContextString, func, file, lineNumber);
+        fprintf(stderr, YELLOW("alloc(%" PRId64 ")->\"0x%p\" # %s %s() %s:%d\n"), (i64)size, *ptr, gContextString, func, file, lineNumber);
     }
 #endif
 
@@ -124,7 +124,7 @@ void hfreeAdvanced(void* ptr, size_t size, const char* file, i32 lineNumber, con
 #if TRACK_ALLOCATIONS
     if(gTrackAllocations)
     {
-        fprintf(stderr, GREEN("free(%" PRId64 ")->\"0x%p\" # %s %s() %s:%d\n"),size, ptr, gContextString, func, file, lineNumber);
+        fprintf(stderr, GREEN("free(%" PRId64 ")->\"0x%p\" # %s %s() %s:%d\n"), (i64)size, ptr, gContextString, func, file, lineNumber);
     }
 #endif
     gAllocatorStats.allocatedSize -= size;
