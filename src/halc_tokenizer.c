@@ -139,6 +139,166 @@ b8 isAlphaNumeric(char ch)
     return FALSE;
 }
 
+// temporary struct created during tokenize()
+// to represent the current state of the tokenize operation
+struct tokenizer {
+
+    // arguments
+    struct tokenStream* ts;
+    const hstr* source;
+    const hstr* filename;
+
+    const char* r; // read pointer
+    const char* rEnd; // end of source read pointer
+    const char* c; // end of read source pointer
+    b8 directiveParenCount; // nested directives parentheses count 
+    i32 lineNumber; // current line number in source
+    i32 state;
+};
+
+errc tokenizer_advance(struct tokenizer* t)
+{
+    b8 shouldBreak = FALSE;
+
+    const hstr* filename = t->filename;
+    const hstr* source = t->source;
+
+    // comment clause
+    if(*t->r == '#' && !shouldBreak)
+    {
+        t->c = t->r;
+        while(*t->c != '\n' && t->c < t->rEnd) t->c++;
+
+        hstr view = {(char*) t->r, (u32)(t->c - t->r)};
+
+        struct token newToken = {COMMENT, view, *filename, t->lineNumber};
+        try(ts_push(t->ts, &newToken));
+        t->r += view.len - 1;
+        shouldBreak = TRUE;
+    }
+
+    if ((*t->r == ':' || *t->r == '>' ) && !shouldBreak && t->directiveParenCount == 0)
+    {
+        if (*t->r == ':')
+        {
+            struct token nt = { COLON, {(char*)t->r, 1}, *filename, t->lineNumber };
+            try(ts_push(t->ts, &nt));
+        }
+        if (*t->r == '>')
+        {
+            struct token nt = { R_ANGLE, {(char*)t->r, 1}, *filename, t->lineNumber };
+            try(ts_push(t->ts, &nt));
+        }
+        t->r += 1;
+
+        while (*t->r == ' ') t->r++;
+
+        t->c = t->r;
+        while (*t->c != '\n' && *t->c != '#' && t->c < t->rEnd) t->c++;
+
+        t->c--;
+
+        while (*t->c == ' ') t->c--;
+
+        t->c++;
+
+        hstr view = { (char*) t->r, (u32)(t->c - t->r)};
+        struct token newToken = { STORY_TEXT, view, *filename, t->lineNumber };
+        try(ts_push(t->ts, &newToken));
+        t->r += view.len;
+        if (t->r > t->rEnd)
+        {
+            if(!is_supressed_errors())
+            {
+                fprintf(stderr, RED("Tokenizer pointer overflow: \n"));
+                if(t->ts->len > 0)
+                {
+                    fprintf(stderr, "Last token parsed: ");
+                    ts_print_token(t->ts, t->ts->len - 1, FALSE, RED_S);
+                }
+            }
+            raise(ERR_TOKENIZER_POINTER_OVERFLOW);
+        }
+        while (*t->r == ' ') t->r++;
+        t->r--;
+        shouldBreak = TRUE;
+    }
+
+    // terminals clause
+    if (!shouldBreak) {
+        for (i32 i = 0; i < arrayCount(Terminals); i += 1)
+        {
+            // build a view based on the current character and look ahead.
+            hstr view = { (char*) t->r, Terminals[i].len };
+
+            // clamp it so we don't look at the null terminator or look past the end.
+            if(view.buffer + view.len >= t->rEnd) 
+            {
+                view.len = (u32) (t->rEnd - view.buffer);
+            }
+
+            if(hstr_match(&view, &Terminals[i]))
+            {
+                struct token newToken = {i, view, *filename, t->lineNumber};
+                t->r += Terminals[i].len - 1;
+
+                try(ts_push(t->ts, &newToken));
+
+                if(i == NEWLINE)
+                {
+                    t->directiveParenCount = 0;
+                    t->lineNumber += 1;
+                }
+
+                if (i == L_PAREN)
+                {
+                    t->directiveParenCount += 1;
+                }
+
+                if (i == R_PAREN)
+                {
+                    t->directiveParenCount -= 1;
+                }
+                shouldBreak = TRUE;
+                break;
+            }
+        }
+    }
+
+    // try to build a label instead
+    if (!shouldBreak && isAlphaNumeric(*t->r))
+    {
+        t->c = t->r;
+        while (t->c < t->rEnd && isAlphaNumeric(*t->c)) t->c++;
+
+        hstr view = { (char*) t->r, (u32)(t->c - t->r)};
+        struct token newToken = { LABEL, view, *filename, t->lineNumber };
+
+        try(ts_push(t->ts, &newToken));
+        t->r += view.len - 1;
+        shouldBreak = TRUE;
+    }
+
+    if (!shouldBreak)
+    {
+        if(!is_supressed_errors())
+        {
+            fprintf(stderr, RED("Unrecognized token: \n"));
+            if(t->ts->len > 0)
+            {
+                fprintf(stderr, "Last token parsed\n");
+                ts_print_token(t->ts, t->ts->len - 1, FALSE, RED_S);
+            }
+        }
+        raise(ERR_UNRECOGNIZED_TOKEN);
+    }
+
+    t->r += 1;
+    shouldBreak = FALSE;
+
+    end;
+}
+
 errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 {
     track_allocs("ts_initialize");
@@ -146,130 +306,24 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
     ts->source = *source;
     ts->filename = *filename;
 
+    struct tokenizer t;
+
+    t.ts = ts;
+    t.source = source;
+    t.filename = filename;
+
+    t.state = TOK_MODE_DEFAULT;
+
     // initialize a pointer and start walking through the source
-    const char* r = source->buffer;
-    const char* rEnd = source->buffer + source->len;
+    t.r = source->buffer;
+    t.rEnd = source->buffer + source->len;
+    
+    t.lineNumber = 1;
+    t.directiveParenCount = 0;
 
-    struct tokenizer tokenizer = {ts, TOK_MODE_DEFAULT};
-    i32 lineNumber = 1;
-    b8 shouldBreak = FALSE;
-    b8 directiveParenCount = 0;
-
-    track_allocs("ts_tokenize");
-    while(r < rEnd)
+    while(t.r < t.rEnd)
     {
-        // comment clause
-        if(*r == '#' && !shouldBreak)
-        {
-            const char* c = r;
-            while(*c != '\n' && c < rEnd) c++;
-
-            hstr view = {(char*) r, (u32)(c - r)};
-
-            struct token newToken = {COMMENT, view, *filename, lineNumber};
-            try(ts_push(ts, &newToken));
-            r += view.len - 1;
-            shouldBreak = TRUE;
-        }
-
-        if ((*r == ':' || *r == '>' ) && !shouldBreak && directiveParenCount == 0)
-        {
-            if (*r == ':')
-            {
-                struct token nt = { COLON, {(char*)r, 1}, *filename, lineNumber };
-                try(ts_push(ts, &nt));
-            }
-            if (*r == '>')
-            {
-                struct token nt = { R_ANGLE, {(char*)r, 1}, *filename, lineNumber };
-                try(ts_push(ts, &nt));
-            }
-            r += 1;
-
-            while (*r == ' ') r++;
-
-            const char* c = r;
-            while (*c != '\n' && *c != '#' && c < rEnd) c++;
-
-            c--;
-
-            while (*c == ' ') c--;
-
-            c++;
-
-            hstr view = { (char*) r, (u32)(c - r)};
-            struct token newToken = { STORY_TEXT, view, *filename, lineNumber };
-            try(ts_push(ts, &newToken));
-            r += view.len;
-            if (r > rEnd)
-                raiseCleanup(ERR_TOKENIZER_POINTER_OVERFLOW);
-            while (*r == ' ') r++;
-            r--;
-            shouldBreak = TRUE;
-        }
-
-        // terminals clause
-        if (!shouldBreak) {
-            for (i32 i = 0; i < arrayCount(Terminals); i += 1)
-            {
-                // build a view based on the current character and look ahead.
-                hstr view = { (char*) r, Terminals[i].len };
-
-                // clamp it so we don't look at the null terminator or look past the end.
-                if(view.buffer + view.len >= rEnd) 
-                {
-                    view.len = (u32) (rEnd - view.buffer);
-                }
-
-                if(hstr_match(&view, &Terminals[i]))
-                {
-                    struct token newToken = {i, view, *filename, lineNumber};
-                    r += Terminals[i].len - 1;
-
-                    try(ts_push(ts, &newToken));
-
-                    if(i == NEWLINE)
-                    {
-                        directiveParenCount = 0;
-                        lineNumber += 1;
-                    }
-
-                    if (i == L_PAREN)
-                    {
-                        directiveParenCount += 1;
-                    }
-
-                    if (i == R_PAREN)
-                    {
-                        directiveParenCount -= 1;
-                    }
-                    shouldBreak = TRUE;
-                    break;
-                }
-            }
-        }
-
-        // try to build a label instead
-        if (!shouldBreak && isAlphaNumeric(*r))
-        {
-            const char* c = r;
-            while (c < rEnd && isAlphaNumeric(*c)) c++;
-
-            hstr view = { (char*) r, (u32)(c - r)};
-            struct token newToken = { LABEL, view, *filename, lineNumber };
-
-            try(ts_push(ts, &newToken));
-            r += view.len - 1;
-            shouldBreak = TRUE;
-        }
-
-        if (!shouldBreak)
-        {
-            raiseCleanup(ERR_UNRECOGNIZED_TOKEN);
-        }
-
-        r += 1;
-        shouldBreak = FALSE;
+        tryCleanup(tokenizer_advance(&t));
     }
 
     end;
@@ -279,13 +333,12 @@ cleanup:
     end;
 }
 
-
 void ts_free(struct tokenStream* ts)
 {
     hfree(ts->tokens, sizeof(struct tokenStream) * ts->capacity);
 }
 
-errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_line_offsets* offsets)
+errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_view* offsets)
 {
     // find the line of the source file that the token resides on and print out the line.
     i32 linelen = 0;
@@ -313,6 +366,7 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
         return ERR_OK;
     }
 
+    // walk backwards until we hit the line start
     while (l > source->buffer && *l != '\n') l--;
     if(*l == '\n')
         l += 1;
@@ -322,6 +376,8 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
     offsets->tok_end = offsets->tok_start + tok->tokenView.len - 1;
 
     l = tok->tokenView.buffer + tok->tokenView.len - 1;
+
+    // walk forward until we hit line end
     while (l < sEnd && *l != '\n') l++;
 
     const char* lend = l;
@@ -338,7 +394,7 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, co
     struct token tok = ts->tokens[index];
 
     hstr sl;
-    struct tok_line_offsets offsets;
+    struct tok_view offsets;
     try(tok_get_sourceline(&tok, &ts->source, &sl, &offsets));
 
     if (dryRun)
@@ -349,17 +405,37 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, co
     printf("token at: %.*s \n", ts->filename.len, ts->filename.buffer);
 
     printf("line %6d: ", tok.lineNumber);
-    printf("%.*s \n", sl.len, sl.buffer);
-    printf("             ");
+
+    for(u32 j = 0; j < sl.len; j += 1)
+    {
+        if(sl.buffer[j] == '\t')
+        {
+            printf("->  ");
+        }
+        else
+        {
+            putchar(sl.buffer[j]);
+        }
+    }
+
+    printf("\n             ");
 
     for (i32 i = 0; i < offsets.tok_start; i++)
     {
+        if(sl.buffer[i] == '\t')
+        {
+            printf("   ");
+        }
         printf(" ");
     }
 
     printf("%s", color);
     for (i32 i = offsets.tok_start; i <= offsets.tok_end; i++)
     {
+        if(sl.buffer[i] == '\t')
+        {
+            printf("^^^");
+        }
         printf("^");
     }
     printf(RESET_S);
@@ -369,3 +445,12 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, co
     end;
 }
 
+
+const char* tok_id_to_string(i32 id)
+{
+    if(id < sizeof(tokenTypeStrings) / sizeof(tokenTypeStrings[0]))
+    {
+        return tokenTypeStrings[id];
+    }
+    return "UNKNOWN_TOKEN_TYPE";
+}

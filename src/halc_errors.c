@@ -28,6 +28,8 @@ const char* errc_to_string(errc code)
             return "Unable to open file";
         case ERR_FILE_SEEK_ERROR:
             return "File Seek error";
+        case ERR_INCONSISTENT_FILE_FORMAT:
+            return "Inconsistent file format";
 
         // assertions
         case ERR_ASSERTION_FAILED:
@@ -51,7 +53,13 @@ const char* errc_to_string(errc code)
     return "UNKNOWN_ERROR_CODE";
 }
 
+// supresses error printouts
 b8 gSupressErrors;
+
+b8 is_supressed_errors()
+{
+    return gSupressErrors;
+}
 
 void error_print(errc code, const char* C, const char* F, int L)
 {

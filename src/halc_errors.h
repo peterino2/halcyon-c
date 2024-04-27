@@ -140,6 +140,7 @@ typedef int errc;
 // File IO errors
 #define ERR_UNABLE_TO_OPEN_FILE 2000
 #define ERR_FILE_SEEK_ERROR 2100
+#define ERR_INCONSISTENT_FILE_FORMAT 2200
 
 // assertions
 #define ERR_ASSERTION_FAILED 3100
@@ -190,12 +191,19 @@ void error_print(errc code, const char* C, const char* F, int L);
 
 #define assertCleanup(X) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n"); raiseCleanup(ERR_ASSERTION_FAILED); }
 
+#define assertCleanupMsg(X, FMT, ...) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n with message:\n " FMT, __VA_ARGS__); raiseCleanup(ERR_ASSERTION_FAILED); }
+
+#define assertMsg(X, FMT, ...) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n with message:\n " FMT, __VA_ARGS__); raise(ERR_ASSERTION_FAILED); }
+
 extern errc gErrorCatch;
 extern b8 gErrorFirst;
 
 void setup_error_context();
 
+// supresses error printouts.
+// this has no impact on error handling code, but it prevents downgrades
 void supress_errors();
+b8 is_supressed_errors();
 void unsupress_errors();
 
 EXTERN_C_END;

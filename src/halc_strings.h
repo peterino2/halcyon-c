@@ -15,8 +15,12 @@ typedef struct hstr hstr;
 b8 hstr_match(const hstr* left, const hstr* right);
 void hstr_free(hstr* str);
 
-// Gives back a string buffer with normalized string buffers.
-errc hstr_normalize_lf(const hstr* istr, hstr* ostr);
+// Gives back a string buffer with normalized line endings, 
+// we only support \n line ending and convert 
+// all line start spaces to TABs, will raise an halc_error 
+// if we detect a line that does not start on a multiple of 4
+// spaces
+errc hstr_normalize(const hstr* istr, hstr* ostr);
 
 // Do not count the null terminator as part of the length
 #define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1, 0} 

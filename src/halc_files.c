@@ -77,7 +77,7 @@ errc load_and_decode_from_file(hstr* out, const hstr* filePath)
 {
     hstr file;
     try(load_file(&file, filePath));
-    try(hstr_normalize_lf(&file, out));
+    try(hstr_normalize(&file, out));
 
     hstr_free(&file);
     end;

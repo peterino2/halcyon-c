@@ -40,6 +40,8 @@ enum tokenType{
     COMMENT
 };
 
+const char* tok_id_to_string(i32 id);
+
 struct token {
     enum tokenType tokenType;
     hstr tokenView;
@@ -47,24 +49,30 @@ struct token {
     i32 lineNumber;
 };
 
+// a list of the entire source viewed as tokens
 struct tokenStream {
     hstr source; // 16
+    
+    // tokens array
     struct token* tokens; //8
     i32 len; // 4
     i32 capacity; //4
+
     hstr filename; // 16
 };
 
-struct tokenizer {
-    struct tokenStream* ts;
-    i32 state;
+struct iter {
+    i32 index;
 };
 
-struct tok_line_offsets {
+
+// struct representing a line in the tokenstream, indiciating start and end
+struct tok_view {
     i32 tok_start;
     i32 tok_end;
 };
 
+// creates a tokenstream from a a source file
 errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename);
 
 errc ts_initialize(struct tokenStream* ts, i32 source_length_hint);
@@ -75,6 +83,7 @@ errc ts_push(struct tokenStream* ts, struct token* tok);
 
 void ts_free(struct tokenStream* ts);
 
+
 #define TOK_MODE_ERROR -1
 #define TOK_MODE_DEFAULT 0
 #define TOK_MODE_STORY 1
@@ -83,7 +92,11 @@ void ts_free(struct tokenStream* ts);
 extern const char* tokenTypeStrings[];
 extern const hstr Terminals[];
 
+// prints out a token from the tokenStream with a bunch of extra information, dryRun parameter is used to just test 
+// functionality without printing it to the console
 errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, const char* color);
-errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_line_offsets* offsets);
+
+// gets a souce line from a given a tok_view
+errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_view* offsets);
 
 #endif

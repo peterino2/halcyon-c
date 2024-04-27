@@ -21,7 +21,7 @@ errc loading_file_test()
 }
 
 // ===================== tokenizer tests ========================
-errc testing_directives()
+errc tokenizer_directives_basic()
 {
     hstr testString = HSTR("[helloworld]\n@setVar(wutang clan coming at you)\n @jumpIf(x >= 2)");
     hstr testFileName = HSTR("no file");
@@ -52,13 +52,30 @@ errc testing_directives()
 
     for(i32 i = 0; i < ts.len; i += 1)
     { 
-        assertCleanup(ts.tokens[i].tokenType == tokens[i]);
+        assertCleanupMsg(ts.tokens[i].tokenType == tokens[i], " i == %d ", i);
     }
 
     assertCleanup(ts.len == arrayCount(tokens));
 
 cleanup:
     ts_free(&ts);
+    end;
+}
+
+
+errc test_ts_matches_expected_stream(const struct tokenStream* ts, i32* tokens, i32 len)
+{
+    for(i32 i = 0; i < len; i+=1)
+    {
+        if(ts->tokens[i].tokenType != tokens[i])
+        {
+            ts_print_token(ts, i, FALSE, RED_S);
+        }
+        assertMsg(ts->tokens[i].tokenType == tokens[i], " i == %d expected %s got %s", i, 
+            tok_id_to_string(tokens[i]), 
+            tok_id_to_string(ts->tokens[i].tokenType));
+    }
+
     end;
 }
 
@@ -70,7 +87,7 @@ errc tokenizer_full()
     try(load_and_decode_from_file(&fileContents, &filename));
     
     struct tokenStream ts;
-    tryCleanup(tokenize(&ts, &fileContents, &filename));
+    try(tokenize(&ts, &fileContents, &filename));
 
     i32 tokens[] = {
         L_SQBRACK,
@@ -98,38 +115,37 @@ errc tokenizer_full()
         STORY_TEXT,
         NEWLINE,
 
-        SPACE, SPACE, SPACE, SPACE,
+        TAB,
         R_ANGLE, STORY_TEXT, NEWLINE,
 
-        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        TAB, TAB,
         SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
         
-        SPACE, SPACE, SPACE, SPACE,
+        TAB,
         R_ANGLE, STORY_TEXT, NEWLINE,
 
-        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        TAB, TAB,
         SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
 
-        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        TAB, TAB,
         LABEL, COLON, STORY_TEXT, NEWLINE,
 
-        SPACE, SPACE, SPACE, SPACE,
+        TAB,
         R_ANGLE, STORY_TEXT, NEWLINE,
 
-        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        TAB, TAB,
         SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
 
-        SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE,
+        TAB, TAB,
         AT, LABEL, SPACE, LABEL, NEWLINE,
 
         AT, LABEL, NEWLINE
     };
 
+
+    try(test_ts_matches_expected_stream(&ts, tokens, arrayCount(tokens)));
+
     assertCleanup(arrayCount(tokens) == ts.len);
-    for (int i = 0; i < ts.len; i += 1)
-    {
-        assertCleanup(tokens[i] == ts.tokens[i].tokenType);
-    }
 
     const hstr label1 = HSTR("hello");
     assertCleanup(hstr_match(&label1, &ts.tokens[1].tokenView));
@@ -144,7 +160,6 @@ errc tokenizer_full()
     assertCleanup(ts.tokens[4].lineNumber == 2);
     assertCleanup(ts.tokens[8].lineNumber == 2);
     assertCleanup(ts.tokens[9].lineNumber == 3);
-    assertCleanup(ts.tokens[104].lineNumber == 14);
 
 cleanup:
     ts_free(&ts);
@@ -152,7 +167,7 @@ cleanup:
     end;
 }
 
-errc test_random_utf8()
+errc tokenizer_test_random_utf8()
 {
     hstr filename = HSTR("testfiles/random_utf8.halc");
     hstr content;
@@ -211,20 +226,20 @@ struct s_graph {
     i32 len;
 };
 
-struct p_obj
+// ast node
+struct a_node
 {
     b8 x;
 };
 
 struct s_parser
 {
-    // ast
-    struct p_obj* ast;
+    struct a_node* ast; // backing storage for asts
     u32 ast_cap;
     u32 ast_len;
 
     // ast view
-    struct p_obj* ast_view;
+    struct a_node* ast_view;
     u32 ast_view_len;
 
     const struct token* t;
@@ -235,7 +250,7 @@ struct s_parser
 errc parser_init(struct s_parser* p, const struct tokenStream* ts)
 {
     p->ast_cap = 256;
-    halloc(&p->ast, p->ast_cap * sizeof(struct p_obj));
+    halloc(&p->ast, p->ast_cap * sizeof(struct a_node));
     p->ast_len = 0;
 
     p->ast_view = p->ast;
@@ -250,11 +265,11 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
 
 void parser_free(struct  s_parser* p)
 {
-    hfree(p->ast, sizeof(struct p_obj) * p->ast_cap);
+    hfree(p->ast, sizeof(struct a_node) * p->ast_cap);
 }
 
 // Minimum matching is 3 segments long
-b8 parser_matchDialogue(struct s_parser* p)
+b8 parser_match_dialogue(struct s_parser* p)
 {
     if ((p->tend - p->t) < 3)
     {
@@ -267,7 +282,7 @@ b8 parser_matchDialogue(struct s_parser* p)
         p->t[1].tokenType == COLON &&
         p->t[2].tokenType == STORY_TEXT)
     {
-        // printf(YELLOW("Dialogue!\n"));
+        printf(YELLOW("Dialogue!\n"));
         p->t += 3 - 1;
         rv = TRUE;
     }
@@ -276,7 +291,7 @@ b8 parser_matchDialogue(struct s_parser* p)
 }
 
 // Minimum matching is 3 segments long
-b8 parser_matchLabel(struct s_parser* p)
+b8 parser_match_label(struct s_parser* p)
 {
     if ((p->tend - p->t) < 3)
     {
@@ -289,13 +304,28 @@ b8 parser_matchLabel(struct s_parser* p)
         p->t[1].tokenType == LABEL &&
         p->t[2].tokenType == R_SQBRACK)
     {
-        // printf(YELLOW("LABEL!!\n"));
+        printf(YELLOW("LABEL!!\n"));
         p->t += 3 - 1;
         rv = TRUE;
     }
 
     return rv;
 }
+
+/**
+ * shitty ebnf
+ *
+ * s_graph -> [expression+]
+ * 
+ * expression -> (dialogue | directive | extension) [COMMENT]
+ * directive -> AT L_PAREN * R_PAREN NEWLINE
+ *
+ * dialogue -> speech | selection
+ *
+ * speech -> [TAB] (SPEAKERSIGN | LABEL) COLON STORY_TEXT NEWLINE
+ *
+ * selection -> 
+ */
 
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 {
@@ -305,11 +335,11 @@ errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
     while (p.t < p.tend)
     {
         // go through each possiblity of a match, and check if it is each one.
-        if(parser_matchDialogue(&p))
+        if(parser_match_dialogue(&p))
         {
             // output a dialogue node to the graph
         }
-        else if(parser_matchLabel(&p)) 
+        else if(parser_match_label(&p)) 
         {
             // output a label node to the graph
         }
@@ -321,21 +351,51 @@ errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
     end;
 }
 
+// tests first phase of parsing, converting a tokenstream into a graph of nodes
 errc tokens_into_graph()
 {
     hstr testString = HSTR(
         "[label]\n"
         "$:this is a sample dialogue\n" 
-        "$:this is another dialogue\n" );
+        "homer: give me another dialogue \n"
+        "    > give him a real dialogue\n"
+        "        homer: thanks for the new dialogue\n"
+        "    > nah, don't do that #[123456] why would you pick this\n"
+        "        homer: you are the worst\n"
+        "$:end of dialogue\n" );
     hstr filename = HSTR("no file");
 
+    hstr normalizedTestString;
+    
+    try(hstr_normalize(&testString,&normalizedTestString));
+
+    i32 tokens[] = {
+        L_SQBRACK, LABEL, R_SQBRACK, NEWLINE,
+        SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
+        LABEL, COLON, STORY_TEXT, NEWLINE,
+        TAB, R_ANGLE, STORY_TEXT, NEWLINE,
+        TAB, TAB, LABEL, COLON, STORY_TEXT, NEWLINE,
+        TAB, R_ANGLE, STORY_TEXT, COMMENT, NEWLINE,
+        TAB, TAB, LABEL, COLON, STORY_TEXT, NEWLINE,
+        SPEAKERSIGN, COLON, STORY_TEXT,
+    };
+
     struct tokenStream ts;
-    try(tokenize(&ts, &testString, &filename));
+
+    try(tokenize(&ts, &normalizedTestString, &filename));
+
+    for (i32 i = 0; i < ts.len; i += 1)
+    {
+        ts_print_token(&ts, i, FALSE, GREEN_S);
+    }
+
+    try(test_ts_matches_expected_stream(&ts, tokens, sizeof(tokens) / sizeof(tokens[0])));
 
     struct s_graph graph;
     try(parse_tokens(&graph, &ts));
 
     ts_free(&ts);
+    hstr_free(&normalizedTestString);
     // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));
     end;
 }
@@ -351,9 +411,9 @@ struct testEntry {
 
 struct testEntry gTests[] = {
     TEST_IMPL(loading_file_test, "simple file loading test"),
-    TEST_IMPL(testing_directives, "testing tokenization of directives"),
+    TEST_IMPL(tokenizer_directives_basic, "testing tokenization of directives"),
     TEST_IMPL(tokenizer_full, "tokenizer full test"),
-    TEST_IMPL(test_random_utf8, "testing safety on random utf8 strings being passed in"),
+    TEST_IMPL(tokenizer_test_random_utf8, "testing safety on random utf8 strings being passed in"),
     TEST_IMPL(token_printouts, "debugging token printouts"),
     TEST_IMPL(tokens_into_graph, "parsing tokens into a graph")
 };
@@ -378,7 +438,7 @@ i32 runAllTests()
             errorCode = errorCodeFromUntrack;
         }
 
-        printf("stats - memory remaining at end of test: %0.3lfK (peak: %" "0.3lf" "K)\n", ((double) stats.allocatedSize) / 1000.0, ((double)stats.peakAllocatedSize) / 1000.0);
+        printf(GREEN("stats - memory remaining at end of test: %0.3lfK (peak: %" "0.3lf" "K)\n"), ((double) stats.allocatedSize) / 1000.0, ((double)stats.peakAllocatedSize) / 1000.0);
 
         if(errorCode != ERR_OK)
         {

@@ -40,17 +40,20 @@ errc untrack_allocs(struct allocatorStats* outTrackedAllocationStats)
 
     *outTrackedAllocationStats = gAllocatorStats;
 
-        if(gAllocatorStats.allocations > 0)
-        {
-            fprintf(stderr, "untrack called, leaked memory: %" PRId64 
-                    " bytes in %" PRId32 
-                    " allocations (peakAllocatedSize: %" PRId64 ")\n", 
-                    gAllocatorStats.allocatedSize,
-                    gAllocatorStats.allocations,
-                    gAllocatorStats.peakAllocatedSize);
-            raise(ERR_TEST_LEAKED_MEMORY);
-        }
+    if(gAllocatorStats.allocations > 0)
+    {
+        fprintf(stderr, "untrack called, leaked memory: %" PRId64 
+                " bytes in %" PRId32 
+                " allocations (peakAllocatedSize: %" PRId64 ")\n", 
+                gAllocatorStats.allocatedSize,
+                gAllocatorStats.allocations,
+                gAllocatorStats.peakAllocatedSize);
 
+        raiseCleanup(ERR_TEST_LEAKED_MEMORY);
+    }
+
+
+cleanup:
     gAllocatorStats.allocations = 0;
     gAllocatorStats.allocatedSize = 0;
     gAllocatorStats.peakAllocatedSize = 0;

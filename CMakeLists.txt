@@ -16,4 +16,6 @@ set_property(TARGET halcyon_test PROPERTY C_STANDARD 99)
 add_compile_options(-fsanitize=address -Wall -Werror)
 add_link_options(-fsanitize=address)
 
+set_property(TARGET halcyon_test PROPERTY COMPILE_WARNING_AS_ERROR ON)
+
 add_test(NAME halc_test COMMAND halcyon_test)
