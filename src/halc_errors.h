@@ -151,22 +151,22 @@ typedef int errc;
 // testing based error tokens
 #define ERR_TEST_LEAKED_MEMORY 101 // codes that end in a 1 indicate they are supposed to only be used by the testing framework.
 
-const char* errcToString(errc code);
-void errorPrint(errc code, const char* C, const char* F, int L);
+const char* errc_to_string(errc code);
+void error_print(errc code, const char* C, const char* F, int L);
 
 // ==================== Errors Library ==================
 #define try(X) if((gErrorCatch = X)) {\
-    errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
+    error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     return gErrorCatch;\
 }
 
 #define tryCleanup(X) if((gErrorCatch = X)) {\
-    errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
+    error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     goto cleanup;\
 }
 
 #define ensure(X) if((gErrorCatch = X)) {\
-    errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
+    error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     abort();\
 } \
 
@@ -176,13 +176,13 @@ void errorPrint(errc code, const char* C, const char* F, int L);
 // use if your code has a cleanup: section
 #define raiseCleanup(X) do{ \
     gErrorCatch = X;\
-    errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
+    error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     goto cleanup; }while(0)
 
 // use only if your code doesn't have a cleanup section
 #define raise(X) do {\
         gErrorCatch = X;\
-        errorPrint(gErrorCatch, #X, __FILE__, __LINE__);\
+        error_print(gErrorCatch, #X, __FILE__, __LINE__);\
         return gErrorCatch;\
     }while(0)
 
@@ -193,10 +193,10 @@ void errorPrint(errc code, const char* C, const char* F, int L);
 extern errc gErrorCatch;
 extern b8 gErrorFirst;
 
-void setupErrorContext();
+void setup_error_context();
 
-void supressErrors();
-void unSupressErrors();
+void supress_errors();
+void unsupress_errors();
 
 EXTERN_C_END;
 

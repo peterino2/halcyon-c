@@ -5,7 +5,7 @@
 errc gErrorCatch = ERR_OK;
 b8 gErrorFirst = FALSE;
 
-const char* errcToString(errc code)
+const char* errc_to_string(errc code)
 {
     switch(code)
     {   
@@ -53,7 +53,7 @@ const char* errcToString(errc code)
 
 b8 gSupressErrors;
 
-void errorPrint(errc code, const char* C, const char* F, int L)
+void error_print(errc code, const char* C, const char* F, int L)
 {
     if(!gSupressErrors)
     {
@@ -62,26 +62,21 @@ void errorPrint(errc code, const char* C, const char* F, int L)
             fprintf(stderr, "\n");
             gErrorFirst = FALSE;
         }
-        fprintf(stderr, "  > " RED("Error") RED(" \"%s\"(%d):") YELLOW(" '%s'") CYAN(" %s:%d\n"), errcToString(code), code, C, F, L);
+        fprintf(stderr, "  > " RED("Error") RED(" \"%s\"(%d):") YELLOW(" '%s'") CYAN(" %s:%d\n"), errc_to_string(code), code, C, F, L);
     }
 }
 
-void enableErrors()
-{
-    gSupressErrors = FALSE;
-}
-
-void supressErrors()
+void supress_errors()
 {
     gSupressErrors = TRUE;
 }
 
-void unSupressErrors()
+void unsupress_errors()
 {
     gSupressErrors = FALSE;
 }
 
-void setupErrorContext()
+void setup_error_context()
 {
     gErrorCatch = ERR_OK;
     gErrorFirst = TRUE;

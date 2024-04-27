@@ -15,7 +15,7 @@ errc loading_file_test()
 {
     hstr decoded;
     const hstr filePath = HSTR("testfiles/terminals.halc");
-    try(loadAndDecodeFromFile(&decoded, &filePath));
+    try(load_and_decode_from_file(&decoded, &filePath));
     hstr_free(&decoded);
     end;
 }
@@ -67,7 +67,7 @@ errc tokenizer_full()
     const hstr filename = HSTR("testfiles/storySimple.halc");
 
     hstr fileContents;
-    try(loadAndDecodeFromFile(&fileContents, &filename));
+    try(load_and_decode_from_file(&fileContents, &filename));
     
     struct tokenStream ts;
     tryCleanup(tokenize(&ts, &fileContents, &filename));
@@ -156,14 +156,14 @@ errc test_random_utf8()
 {
     hstr filename = HSTR("testfiles/random_utf8.halc");
     hstr content;
-    try(loadAndDecodeFromFile(&content, &filename));
+    try(load_and_decode_from_file(&content, &filename));
 
-    supressErrors();
+    supress_errors();
 
     struct tokenStream ts;
     errc errorcode = tokenize(&ts, &content, &filename);
 
-    unSupressErrors();
+    unsupress_errors();
 
     assertCleanup(errorcode == ERR_UNRECOGNIZED_TOKEN);
 
@@ -182,7 +182,7 @@ errc token_printouts()
     const hstr filename = HSTR("testfiles/storySimple.halc");
 
     hstr fileContents;
-    try(loadAndDecodeFromFile(&fileContents, &filename));
+    try(load_and_decode_from_file(&fileContents, &filename));
     
     struct tokenStream ts;
     try(tokenize(&ts, &fileContents, &filename));
@@ -366,12 +366,12 @@ i32 runAllTests()
     {
         gErrorCatch = ERR_OK;
         printf("Running test: ... %s  ", gTests[i].testName);
-        setupErrorContext();
-        trackAllocs(gTests[i].testName);
+        setup_error_context();
+        track_allocs(gTests[i].testName);
         errc errorCode = gTests[i].testFunc();
 
         struct allocatorStats stats;
-        errc errorCodeFromUntrack = untrackAllocs(&stats);
+        errc errorCodeFromUntrack = untrack_allocs(&stats);
 
         if (!errorCode && errorCodeFromUntrack)
         {
@@ -390,7 +390,7 @@ i32 runAllTests()
             passes += 1;
             printf("\r                                                    \r");
         }
-        unSupressErrors();
+        unsupress_errors();
     }
 
     printf("total: %d\npassed: %d\nfailed: %d\n", passes + failures, passes, failures);
@@ -409,8 +409,8 @@ i32 runAllTests()
 
 int main(int argc, char** argv)
 {
-    setupDefaultAllocator(); // TODO swap this with a testing allocator
-    setupErrorContext();
+    setup_default_allocator(); // TODO swap this with a testing allocator
+    setup_error_context();
 
     const hstr trackAllocs = HSTR("-a");
     const hstr doPrintouts = HSTR("--printout");
@@ -422,7 +422,7 @@ int main(int argc, char** argv)
         hstr arg = {argv[i], (u32)strlen(argv[i])};
         if(hstr_match(&arg, &trackAllocs))
         {
-            enableAllocationTracking();
+            enable_allocation_tracking();
         }
 
         if(hstr_match(&arg, &doPrintouts))

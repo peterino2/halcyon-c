@@ -15,14 +15,14 @@ const char* gContextString = "Unnamed";
 
 struct allocatorStats gAllocatorStats;
 
-static void initAllocatorStats()
+static void init_allocator_stats()
 {
     gAllocatorStats.allocations = 0;
     gAllocatorStats.allocatedSize = 0;
     gAllocatorStats.peakAllocatedSize = 0;
 }
 
-void trackAllocs(const char* contextString) 
+void track_allocs(const char* contextString) 
 {
 #if TRACK_ALLOCATIONS
     if(!gAllowTrackAllocations)
@@ -35,7 +35,7 @@ void trackAllocs(const char* contextString)
 }
 
 
-errc untrackAllocs(struct allocatorStats* outTrackedAllocationStats)
+errc untrack_allocs(struct allocatorStats* outTrackedAllocationStats)
 {
 
     *outTrackedAllocationStats = gAllocatorStats;
@@ -62,9 +62,9 @@ errc untrackAllocs(struct allocatorStats* outTrackedAllocationStats)
     end;
 }
 
-errc setupDefaultAllocator() 
+errc setup_default_allocator() 
 {
-    initAllocatorStats();
+    init_allocator_stats();
     gDefaultAllocator.malloc_fn = malloc;
     gDefaultAllocator.free_fn = free;
     gTrackAllocations = FALSE;
@@ -73,13 +73,13 @@ errc setupDefaultAllocator()
     end;
 }
 
-errc enableAllocationTracking()
+errc enable_allocation_tracking()
 {
     gAllowTrackAllocations = TRUE;
     end;
 }
 
-errc setupCustomDefaultAllocator(
+errc setup_default_custom_allocator(
     void* (*malloc_fn) (size_t),
     void (*free_fn) (void*))
 {
@@ -91,7 +91,7 @@ errc setupCustomDefaultAllocator(
     end;
 }
 
-errc hallocAdvanced(void** ptr, size_t size, const char* file, i32 lineNumber, const char* func)
+errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, const char* func)
 {
     *ptr = gDefaultAllocator.malloc_fn(size);
     if(!*ptr)
@@ -119,7 +119,7 @@ cleanup:
 
 // ======================= hash allocator =================
 
-void hfreeAdvanced(void* ptr, size_t size, const char* file, i32 lineNumber, const char* func)
+void hfree_advanced(void* ptr, size_t size, const char* file, i32 lineNumber, const char* func)
 {
 #if TRACK_ALLOCATIONS
     if(gTrackAllocations)
@@ -132,6 +132,6 @@ void hfreeAdvanced(void* ptr, size_t size, const char* file, i32 lineNumber, con
     gDefaultAllocator.free_fn(ptr);
 }
 
-void printMemoryStatistics()
+void print_memory_statistics()
 {
 }

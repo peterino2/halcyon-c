@@ -25,7 +25,7 @@ errc ts_resize(struct tokenStream* ts)
 
     // resize the array
     ts->capacity *= 2;
-    trackAllocs("resize event");
+    track_allocs("resize event");
     struct token* newTokens;
     halloc(&newTokens, ts->capacity * sizeof(struct token)); // FIXME_GOOD
 
@@ -141,7 +141,7 @@ b8 isAlphaNumeric(char ch)
 
 errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 {
-    trackAllocs("ts_initialize");
+    track_allocs("ts_initialize");
     try(ts_initialize(ts, source->len));
     ts->source = *source;
     ts->filename = *filename;
@@ -155,7 +155,7 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
     b8 shouldBreak = FALSE;
     b8 directiveParenCount = 0;
 
-    trackAllocs("ts_tokenize");
+    track_allocs("ts_tokenize");
     while(r < rEnd)
     {
         // comment clause

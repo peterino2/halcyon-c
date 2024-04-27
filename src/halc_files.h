@@ -8,7 +8,7 @@
 
 
 // load file into an hstr struct
-errc loadFile(hstr* out, const hstr* filePath);
-errc loadAndDecodeFromFile(hstr* out, const hstr* filePath);
+errc load_file(hstr* out, const hstr* filePath);
+errc load_and_decode_from_file(hstr* out, const hstr* filePath);
 
 #endif

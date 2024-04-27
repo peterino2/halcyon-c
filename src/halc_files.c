@@ -19,7 +19,7 @@ FILE* h_fopen(const char* filePath, const char* opts)
     return file;
 }
 
-errc loadFile(hstr* out, const hstr* filePath)
+errc load_file(hstr* out, const hstr* filePath)
 {
     errc error_code = ERR_OK; 
 
@@ -73,10 +73,10 @@ exitCloseFile:
     end;
 }
 
-errc loadAndDecodeFromFile(hstr* out, const hstr* filePath)
+errc load_and_decode_from_file(hstr* out, const hstr* filePath)
 {
     hstr file;
-    try(loadFile(&file, filePath));
+    try(load_file(&file, filePath));
     try(hstr_normalize_lf(&file, out));
 
     hstr_free(&file);
