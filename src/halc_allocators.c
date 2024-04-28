@@ -140,6 +140,8 @@ void print_memory_statistics()
 {
 }
 
+#define MEM_MIN(A, B) (A < B ? A : B)
+
 errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,const char* file, i32 lineNumber, const char* func)
 {
     if(newSize == size)
@@ -147,7 +149,7 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
         end;
     }
 
-    if(!allowShrink && (newSize <= newSize))
+    if(!allowShrink && (newSize <= size))
     {
         raise(ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED);
     }
@@ -159,7 +161,7 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
         raise(ERR_OUT_OF_MEMORY);
     }
     // copy from old to new
-    memcpy(new, *ptr, min(size, newSize));
+    memcpy(new, *ptr, MEM_MIN(size, newSize));
     
     // clean up old ptr
     gDefaultAllocator.free_fn(ptr);
