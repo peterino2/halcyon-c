@@ -353,6 +353,7 @@ struct anode_expression {
 // ast node
 struct anode
 {
+    i32 index;
     i32 parent; // parent of this node, following this node when we successfully parse should always get us to a graph node.
 
     enum ANodeType typeTag;
@@ -396,6 +397,23 @@ struct s_parser
 #define PARSER_INIT_NODESTACK_SIZE 64
 #define PARSER_INIT_NODECOUNT 256
 
+errc parser_new_node(struct s_parser* p, struct anode** newNode)
+{
+    if(p->ast_len == p->ast_cap)
+    {
+        u32 newSize = p->ast_cap * sizeof(struct anode) * 2;
+        hrealloc(&p->ast, p->ast_cap * sizeof(struct anode), newSize, FALSE);
+        p->ast_cap = newSize;
+    }
+
+    *newNode = p->ast + p->ast_len;
+    (*newNode)->index = p->ast_len;
+    p->ast_len += 1;
+
+    end;
+}
+
+errc parser_push_stack(struct s_parser* p, struct anode* node);
 errc parser_init(struct s_parser* p, const struct tokenStream* ts)
 {
     p->ast_cap = PARSER_INIT_NODECOUNT;
@@ -417,6 +435,18 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
     halloc(&p->stack, PARSER_INIT_NODESTACK_SIZE * sizeof(i32));
     p->stackCap = PARSER_INIT_NODESTACK_SIZE;
     p->stackCount = 0;
+
+    struct anode* newNode;
+    try(parser_new_node(p, &newNode));
+
+    // node 0's parent is itself, and is the core s_graph
+    newNode->parent = 0;
+    newNode->typeTag =  ANODE_GRAPH;
+    newNode->nodeData.graph.children = -1;
+    newNode->nodeData.graph.childrenCount = 0;
+
+
+    try(parser_push_stack(p, newNode));
 
     end;
 }
@@ -454,8 +484,6 @@ $: Does that make sense?
  *
  * shitty ebnf
  *
- * is this ebnf ok?
- * 
  * s_graph -> [expression+]
  * 
  * expression -> (speech | selection | directive | segmentLabel)
@@ -484,31 +512,137 @@ $: Does that make sense?
  *  
  */
 
-errc parser_new_node(struct s_parser* p, struct anode** newNode)
+errc parser_push_stack(struct s_parser* p, struct anode* node)
 {
-    if(p->ast_len == p->ast_cap)
+    if(p->stackCount == p->stackCap)
     {
-        u32 newSize = p->ast_cap * sizeof(struct anode) * 2;
-        hrealloc(&p->ast, p->ast_cap * sizeof(struct anode), newSize, FALSE);
-        p->ast_cap = newSize;
+        const i32 newCap = p->stackCap * 2 * sizeof(i32);
+        p->stackCap = newCap;
+        hrealloc(&p->stack, p->stackCap * sizeof(i32), newCap, FALSE);
     }
 
-    *newNode = p->ast + p->ast_len;
-    p->ast_len += 1;
+    p->stack[p->stackCount] = node->index;
+    p->stackCount += 1;
+    end;
+}
+
+void pop_stack_discard(struct s_parser* p)
+{
+    p->stackCount -= 1;
+}
+
+// attempts to create an ast node for segment label, if successful, pops the stack by the token size count 
+// and also pushes a new ast node for segment label.
+b8 match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackEnd)
+{
+    if(stackEnd - stackStart != 3)
+    {
+        return FALSE;
+    }
+
+    if(p->ast[stackStart[0]].typeTag == L_SQBRACK && 
+       p->ast[stackStart[1]].typeTag == LABEL && 
+       p->ast[stackStart[2]].typeTag == R_SQBRACK 
+    )
+    {
+        struct anode* label;
+        if(parser_new_node(p, &label))
+        {
+            fprintf(stderr, RED("PANIC: unable to push new node into parser\n"));
+        }
+
+        p->ast[stackStart[0]].parent = label->index;
+        p->ast[stackStart[1]].parent = label->index;
+        p->ast[stackStart[2]].parent = label->index;
+
+        label->typeTag = ANODE_SEGMENT_LABEL;
+        label->nodeData.label.label = p->ast[stackStart[1]].nodeData.token;
+
+        // pop 3 times
+        pop_stack_discard(p);
+        pop_stack_discard(p);
+        pop_stack_discard(p);
+
+        parser_push_stack(p, label);
+
+        // printf(GREEN("found label! %d\n"), p->stackCount);
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+#define PARSER_MATCH_REDUCE(X) if(X){\
+        continueReducing = TRUE; stackStart = p->stack;\
+        assertMsg(p->stackCount != oldStackCount, "function " #X " reported reduce, but stackCount did not change, this will result in an infinite loop %d", p->stackCount); oldStackCount = p->stackCount;\
+    }
+errc parser_reduce(struct s_parser* p)
+{
+    
+    assertMsg(p->stackCount > 0, "parser active stack was %d", p->stackCount);
+    
+    b8 continueReducing = TRUE;
+
+    i32* stackStart = p->stack + p->stackCount - 1;
+    i32* stackEnd = p->stack + p->stackCount;
+
+    i32 oldStackCount = p->stackCount;
+    
+    // stray thought:
+    // if we encounter an impoossible sequence, we should be able to evict the broken sequence 
+    // and continue parsing as normal.
+
+    while(continueReducing)
+    {
+        continueReducing = FALSE;
+        while(stackStart > p->stack)
+        {
+            // printf("stackCount %ld \n", stackEnd - stackStart);
+            // if anything gets popped from the stack, restart reduction
+
+            PARSER_MATCH_REDUCE(match_reduce_segment_label(p, stackStart, stackEnd))
+
+            stackStart -= 1;
+        }
+    }
 
     end;
 }
 
 errc parser_advance(struct s_parser* p)
 {
+    // - look at the next token and produce emit a new astNode, 
+    
     struct anode* newNode;
     try(parser_new_node(p, &newNode));
-
-    // - look at the next token and produce emit a new astNode, 
+    printf("nodeIndex = %d\n", newNode->index);
 
     // - add it to ast, then add it to stack
+    newNode->parent = -1;
+    newNode->typeTag = (enum ANodeType) p->t->tokenType; // type tags <= COMMENT are Token Terminals
+    newNode->nodeData.token = p->t - p->ts->tokens;
+
+    struct token x = p->ts->tokens[newNode->nodeData.token];
+
+    printf("token offset %d\n", newNode->nodeData.token);
+    ts_print_token(p->ts, newNode->nodeData.token, FALSE, GREEN_S);
+
+    try(parser_push_stack(p, newNode));
+
+    printf("stack: ");
+
+    for(i32 i = 0; i < p->stackCount; i += 1)
+    {
+        if(p->ast[p->stack[i]].typeTag <= COMMENT)
+            printf(" %s ", tok_id_to_string(p->ast[p->stack[i]].typeTag ));
+        else
+            printf(" SOMENODE ");
+    }
+    printf("\n");
 
     // - call parser_reduce to merge the active stack if merges are possible
+    parser_reduce(p);
+
     // - errors: 
     //      if we have anything other than just a single s_graph at the end.
     p->t++;
@@ -570,7 +704,7 @@ errc tokens_into_graph()
 
     for (i32 i = 0; i < ts.len; i += 1)
     {
-        ts_print_token(&ts, i, FALSE, GREEN_S);
+        // ts_print_token(&ts, i, FALSE, GREEN_S);
     }
 
     try(test_ts_matches_expected_stream(&ts, tokens, sizeof(tokens) / sizeof(tokens[0])));
