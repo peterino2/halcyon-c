@@ -133,6 +133,7 @@ typedef int errc;
 // note to self: ERR_UNKNOWN should never be used, therefore it shouldn't be implmented.
 #define ERR_OUT_OF_MEMORY 100
 #define ERR_DOUBLE_FREE 200
+#define ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED 300
 
 // string errors
 #define ERR_STR_BAD_RESIZE 1000
@@ -148,6 +149,8 @@ typedef int errc;
 #define ERR_UNRECOGNIZED_TOKEN 4100
 #define ERR_TOKENIZER_POINTER_OVERFLOW 4200
 #define ERR_TOKEN_OUT_OF_RANGE 4300
+
+#define ERR_UNEXPECTED_REINITIALIZATION 4400
 
 // testing based error tokens
 #define ERR_TEST_LEAKED_MEMORY 101 // codes that end in a 1 indicate they are supposed to only be used by the testing framework.

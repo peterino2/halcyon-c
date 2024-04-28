@@ -389,10 +389,8 @@ cleanup:
     end;
 }
 
-errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, const char* color)
+errc ts_print_token_inner(const struct tokenStream* ts, struct token tok, b8 dryRun, const char* color)
 {
-    struct token tok = ts->tokens[index];
-
     hstr sl;
     struct tok_view offsets;
     try(tok_get_sourceline(&tok, &ts->source, &sl, &offsets));
@@ -410,7 +408,7 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, co
     {
         if(sl.buffer[j] == '\t')
         {
-            printf("->  ");
+            printf("-->|");
         }
         else
         {
@@ -441,10 +439,18 @@ errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, co
     printf(RESET_S);
 
     printf("%s(%d)\n",tokenTypeStrings[tok.tokenType], tok.tokenType);
-
     end;
 }
 
+errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, const char* color)
+{
+    struct token tok = ts->tokens[index];
+    try(ts_print_token_inner(ts, tok, dryRun, color));
+    end;
+}
+
+// we can easily implement a multi_tok version of this which takes two tokens and merges them from start to finish,
+// assuming there's no difference between their lines
 
 const char* tok_id_to_string(i32 id)
 {

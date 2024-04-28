@@ -49,7 +49,7 @@ struct token {
     i32 lineNumber;
 };
 
-// a list of the entire source viewed as tokens
+// a list of the entire source as a list of tokens
 struct tokenStream {
     hstr source; // 16
     

@@ -30,6 +30,8 @@ const char* errc_to_string(errc code)
             return "File Seek error";
         case ERR_INCONSISTENT_FILE_FORMAT:
             return "Inconsistent file format";
+        case ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED:
+            return "Realloc shrunk allocation when not allowed to.";
 
         // assertions
         case ERR_ASSERTION_FAILED:
@@ -42,6 +44,8 @@ const char* errc_to_string(errc code)
             return "Unrecognized token";
         case ERR_TOKEN_OUT_OF_RANGE:
             return "Token is not part of this source file, pointer not in range.";
+        case ERR_UNEXPECTED_REINITIALIZATION:
+            return "Data structure is being initialized more than once.";
 
         // testing
         case ERR_TEST_LEAKED_MEMORY:

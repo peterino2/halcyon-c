@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
+#include <string.h> // might get rid of this one...
 #include <stdio.h>
 
 struct allocator gDefaultAllocator;
@@ -137,4 +138,35 @@ void hfree_advanced(void* ptr, size_t size, const char* file, i32 lineNumber, co
 
 void print_memory_statistics()
 {
+}
+
+errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,const char* file, i32 lineNumber, const char* func)
+{
+    if(newSize == size)
+    {
+        end;
+    }
+
+    if(!allowShrink && (newSize <= newSize))
+    {
+        raise(ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED);
+    }
+
+    // allocate new memory
+    void* new = gDefaultAllocator.malloc_fn(newSize);
+    if(!new)
+    {
+        raise(ERR_OUT_OF_MEMORY);
+    }
+    // copy from old to new
+    memcpy(new, *ptr, min(size, newSize));
+    
+    // clean up old ptr
+    gDefaultAllocator.free_fn(ptr);
+    *ptr = new;
+
+    gAllocatorStats.allocatedSize -= size;
+    gAllocatorStats.allocatedSize += newSize;
+
+    end;
 }

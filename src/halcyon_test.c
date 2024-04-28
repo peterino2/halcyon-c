@@ -226,106 +226,295 @@ struct s_graph {
     i32 len;
 };
 
-// ast node
-struct a_node
+// append-only bump allocator list of children
+//
+// basically creating a seperate allocation for each child list 
+// within each node is going to be too much of a pain in the ass.
+//
+// this simple bump allocator is going to be much easier to work wtih
+//
+// operation: 
+//
+// - node starts being created
+// - node stores end of list as it's start index for it's list of children
+// - node writes all of it's children into the list
+// - node then stores the end offset
+// - then the node is done writing and never gets to write to the list index ever again.
+// - node stores the length of the number of children it wrote to
+//
+// node can get a view of it's children at any time by calling anode_get_children 
+// on the index list
+struct aindex_list 
 {
-    b8 x;
+    i32* children;
+    i32 len;
+    i32 cap;
 };
+
+errc aindex_init(struct aindex_list* list, i32 initialCap)
+{
+    if(list->cap != 0)
+    {
+        raise(ERR_UNEXPECTED_REINITIALIZATION);
+    }
+
+    list->children = NULL;
+    if (initialCap > 0)
+    {
+        halloc(&list->children, initialCap * sizeof(i32));
+    }
+
+    list->len = 0;
+    list->cap = initialCap;
+
+    end;
+}
+
+errc aindex_push(struct aindex_list* list, i32 newIndex)
+{
+    if(list->len == list->cap)
+    {
+        i32 newCap = list->cap * 2;
+        hrealloc(&list->children, list->cap * sizeof(i32), newCap, FALSE);
+        list->cap = newCap;
+    }
+
+    list->children[list->len] = newIndex;
+    end;
+}
+
+void aindex_free(struct aindex_list* list)
+{
+    if(list->cap == 0)
+    {
+        return;
+    }
+
+    hfree(list->children, list->cap * sizeof(list->children[0]));
+    list->cap = 0;
+}
+
+
+// anode types are an extension of tokenType
+enum ANodeType {
+    ANODE_SELECTION = COMMENT + 1, // ok
+    ANODE_SPEECH, // ok
+    ANODE_SEGMENT_LABEL,
+    ANODE_EXPRESSION,
+    ANODE_GRAPH
+};
+
+// index into tokenstream as a token
+typedef i32 anode_token_t;
+
+struct anode_selection{
+    anode_token_t storyText;
+    anode_token_t comment;
+};
+
+struct anode_speech{
+    anode_token_t speaker;
+    anode_token_t storyText;
+    anode_token_t comment;
+};
+
+struct anode_directive{
+    anode_token_t commandLabel;
+    i32 children;
+    i32 childrenCount;
+};
+
+struct anode_segment_label {
+    anode_token_t label;
+};
+
+// goal of parser is to reduce, reduce, reduce until we get a graph
+struct anode_graph {
+    i32 children; // statically allocated childlist handle
+    i32 childrenCount; // number of children in the indexlist
+};
+
+// main reduction, used to generate the graph
+struct anode_expression {
+    // children indexes storage
+    // we don't dynamically resize or destroy or unload any of this shit so..
+    // we could just have two pointers into a bump-allocated a_index_list
+    
+    i32 tabCount; // tab count of the line this parser node appears in, tabs are special and get ejected from the AST when parsing
+
+    i32 children; // statically allocated childlist handle
+    i32 childrenCount; // number of children in the indexlist
+
+    // reference to start and end tokens
+    anode_token_t tokenStart;
+    anode_token_t tokenEnd;
+};
+
+// ast node
+struct anode
+{
+    i32 parent; // parent of this node, following this node when we successfully parse should always get us to a graph node.
+
+    enum ANodeType typeTag;
+    union NodeData{
+        i32 token; // this node is just a token
+        struct anode_selection selection;
+        struct anode_speech speech;
+        struct anode_segment_label label;
+        struct anode_expression expression;
+        struct anode_directive directive;
+        struct anode_graph graph;
+    } nodeData;
+};
+
+#define PSTATE_DEFAULT 0
+#define PSTATE_DIRECTIVE 1
 
 struct s_parser
 {
-    struct a_node* ast; // backing storage for asts
+    struct anode* ast; // container for all ast nodes;
     u32 ast_cap;
     u32 ast_len;
 
+    struct aindex_list list; // container for all indexes
+
     // ast view
-    struct a_node* ast_view;
+    struct anode* ast_view;
     u32 ast_view_len;
+
+    i32 state;
 
     const struct token* t;
     const struct token* tend;
     const struct tokenStream* ts;
+
+    i32* stack;
+    i32 stackCount;
+    i32 stackCap;
 };
+
+#define PARSER_INIT_NODESTACK_SIZE 64
+#define PARSER_INIT_NODECOUNT 256
 
 errc parser_init(struct s_parser* p, const struct tokenStream* ts)
 {
-    p->ast_cap = 256;
-    halloc(&p->ast, p->ast_cap * sizeof(struct a_node));
+    p->ast_cap = PARSER_INIT_NODECOUNT;
+    halloc(&p->ast, p->ast_cap * sizeof(struct anode));
     p->ast_len = 0;
 
-    p->ast_view = p->ast;
     p->ast_view_len = 0;
+    p->ast_view = p->ast;
+
+    p->state = PSTATE_DEFAULT;
+
+    p->list.cap = 0;
+    aindex_init(&p->list, ts->len);
 
     p->ts = ts;
     p->t = ts->tokens;
     p->tend = ts->tokens + ts->len;
+
+    halloc(&p->stack, PARSER_INIT_NODESTACK_SIZE * sizeof(i32));
+    p->stackCap = PARSER_INIT_NODESTACK_SIZE;
+    p->stackCount = 0;
 
     end;
 }
 
 void parser_free(struct  s_parser* p)
 {
-    hfree(p->ast, sizeof(struct a_node) * p->ast_cap);
-}
-
-// Minimum matching is 3 segments long
-b8 parser_match_dialogue(struct s_parser* p)
-{
-    if ((p->tend - p->t) < 3)
-    {
-        return FALSE;
-    }
-
-    b8 rv = FALSE;
-
-    if (p->t[0].tokenType == SPEAKERSIGN || p->t[0].tokenType == LABEL &&
-        p->t[1].tokenType == COLON &&
-        p->t[2].tokenType == STORY_TEXT)
-    {
-        printf(YELLOW("Dialogue!\n"));
-        p->t += 3 - 1;
-        rv = TRUE;
-    }
-
-    return rv;
-}
-
-// Minimum matching is 3 segments long
-b8 parser_match_label(struct s_parser* p)
-{
-    if ((p->tend - p->t) < 3)
-    {
-        return FALSE;
-    }
-
-    b8 rv = FALSE;
-
-    if (p->t[0].tokenType == L_SQBRACK &&
-        p->t[1].tokenType == LABEL &&
-        p->t[2].tokenType == R_SQBRACK)
-    {
-        printf(YELLOW("LABEL!!\n"));
-        p->t += 3 - 1;
-        rv = TRUE;
-    }
-
-    return rv;
+    hfree(p->stack, sizeof(i32) * p->stackCap);
+    hfree(p->ast, sizeof(struct anode) * p->ast_cap);
+    aindex_free(&p->list);
 }
 
 /**
+ * overall design spec for a large world
+ *
+ * project/
+ *      dresden/
+ *          dresden.halc # encounters and stuff
+ *          characters/
+ *              steward.halc # talking to the steward in neutral
+ *          oneshots/
+ * */
+
+/**
+ *
+$: Does that make sense?
+    > No, can you repeat that?
+        @goto main_menu_dialogue
+
+    @if(condition = )
+    > Yes, I'm ready to start.
+        $: Thanks for playing. And good luck!
+        @changeRooms(1 content/BreakRoom)
+@end
+ *
+ *
  * shitty ebnf
  *
+ * is this ebnf ok?
+ * 
  * s_graph -> [expression+]
  * 
- * expression -> (dialogue | directive | extension) [COMMENT]
- * directive -> AT L_PAREN * R_PAREN NEWLINE
+ * expression -> (speech | selection | directive | segmentLabel)
  *
- * dialogue -> speech | selection
+ * ----------- these guys could be folded into a custom type but it would add complexity and not much perf gain b/c the tab is optional
+ * directive -> [TAB+] AT L_PAREN * R_PAREN [COMMENT] NEWLINE
  *
- * speech -> [TAB] (SPEAKERSIGN | LABEL) COLON STORY_TEXT NEWLINE
+ * speech -> [TAB+] (SPEAKERSIGN | LABEL) COLON STORY_TEXT [COMMENT] NEWLINE
  *
- * selection -> 
+ * selection -> [TAB+] R_ANGLE STORY_TEXT [COMMENT] NEWLINE
+ * ------------
+ *
+ * segmentLabel -> L_SQBRACK LABEL R_SQBRACK NEWLINE
+ *
+ * are there any disadvantages to this layout? metadata layout is limited without being 
+ * recursive descent. however recoverability is really good.
+ *
+ * s_graph is the main unit of forward parsing.
+ *
+ * in order of matching: 
+ *
+ * segmentLabel -> [[hello_world]]
+ * selection -> [> hello, how's it going\n]
+ * speech -> [$: this is a thing!#[commentthingy] \n]
+ * dialogue -> selection | speech
+ *  
  */
+
+errc parser_new_node(struct s_parser* p, struct anode** newNode)
+{
+    if(p->ast_len == p->ast_cap)
+    {
+        u32 newSize = p->ast_cap * sizeof(struct anode) * 2;
+        hrealloc(&p->ast, p->ast_cap * sizeof(struct anode), newSize, FALSE);
+        p->ast_cap = newSize;
+    }
+
+    *newNode = p->ast + p->ast_len;
+    p->ast_len += 1;
+
+    end;
+}
+
+errc parser_advance(struct s_parser* p)
+{
+    struct anode* newNode;
+    try(parser_new_node(p, &newNode));
+
+    // - look at the next token and produce emit a new astNode, 
+
+    // - add it to ast, then add it to stack
+
+    // - call parser_reduce to merge the active stack if merges are possible
+    // - errors: 
+    //      if we have anything other than just a single s_graph at the end.
+    p->t++;
+
+    end;
+}
 
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 {
@@ -334,18 +523,13 @@ errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 
     while (p.t < p.tend)
     {
-        // go through each possiblity of a match, and check if it is each one.
-        if(parser_match_dialogue(&p))
-        {
-            // output a dialogue node to the graph
-        }
-        else if(parser_match_label(&p)) 
-        {
-            // output a label node to the graph
-        }
-        p.t++;
+        tryCleanup(parser_advance(&p));
     }
 
+    printf("parser lenght = %d\n", p.ast_len);
+
+    // graph construction is should now happen here.
+cleanup:
     parser_free(&p);
 
     end;
