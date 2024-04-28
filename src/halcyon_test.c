@@ -326,6 +326,7 @@ struct anode_directive{
 
 struct anode_segment_label {
     anode_token_t label;
+    anode_token_t comment;
 };
 
 // goal of parser is to reduce, reduce, reduce until we get a graph
@@ -572,6 +573,11 @@ b8 match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackEnd
     return FALSE;
 }
 
+b8 match_reduce_selection(struct s_parser *p, i32* stackStart, i32* stackEnd)
+{
+    return FALSE;
+}
+
 #define PARSER_MATCH_REDUCE(X) if(X){\
         continueReducing = TRUE; stackStart = p->stack;\
         assertMsg(p->stackCount != oldStackCount, "function " #X " reported reduce, but stackCount did not change, this will result in an infinite loop %d", p->stackCount); oldStackCount = p->stackCount;\
@@ -620,9 +626,7 @@ errc parser_advance(struct s_parser* p)
     // - add it to ast, then add it to stack
     newNode->parent = -1;
     newNode->typeTag = (enum ANodeType) p->t->tokenType; // type tags <= COMMENT are Token Terminals
-    newNode->nodeData.token = p->t - p->ts->tokens;
-
-    struct token x = p->ts->tokens[newNode->nodeData.token];
+    newNode->nodeData.token = (i32)(p->t - p->ts->tokens);
 
     printf("token offset %d\n", newNode->nodeData.token);
     ts_print_token(p->ts, newNode->nodeData.token, FALSE, GREEN_S);
