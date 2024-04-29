@@ -94,9 +94,13 @@ extern const hstr Terminals[];
 
 // prints out a token from the tokenStream with a bunch of extra information, dryRun parameter is used to just test 
 // functionality without printing it to the console
-errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, const char* color);
+errc ts_print_token(const struct tokenStream* ts, const i32 index, b8 dryRun, const char* color);
 
 // gets a souce line from a given a tok_view
 errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_view* offsets);
+
+const char* ts_get_token_as_buffer(const struct tokenStream* ts, const i32 index);
+
+const struct token* ts_get_tok(const struct tokenStream* ts, i32 index);
 
 #endif

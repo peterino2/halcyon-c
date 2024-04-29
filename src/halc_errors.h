@@ -152,6 +152,11 @@ typedef int errc;
 
 #define ERR_UNEXPECTED_REINITIALIZATION 4400
 
+// parser specific tokens
+
+#define ERR_UNEXPECTED_TOKEN 5100
+#define ERR_UNABLE_TO_PARSE_LINE 5200
+
 // testing based error tokens
 #define ERR_TEST_LEAKED_MEMORY 101 // codes that end in a 1 indicate they are supposed to only be used by the testing framework.
 

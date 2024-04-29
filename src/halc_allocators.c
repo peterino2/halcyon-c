@@ -149,7 +149,7 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
         end;
     }
 
-    if(!allowShrink && (newSize <= size))
+    if(!allowShrink && (newSize < size))
     {
         raise(ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED);
     }
@@ -164,7 +164,7 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
     memcpy(new, *ptr, MEM_MIN(size, newSize));
     
     // clean up old ptr
-    gDefaultAllocator.free_fn(ptr);
+    gDefaultAllocator.free_fn(*ptr);
     *ptr = new;
 
     gAllocatorStats.allocatedSize -= size;

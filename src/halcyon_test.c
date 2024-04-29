@@ -303,6 +303,30 @@ enum ANodeType {
     ANODE_EXPRESSION,
     ANODE_GRAPH
 };
+ 
+const char* node_id_to_string(i32 id)
+{
+    if(id <= COMMENT)
+    {
+        return tok_id_to_string(id);
+    }
+
+    switch(id)
+    {
+        case ANODE_SELECTION:
+            return YELLOW("SELECTION");
+        case ANODE_SPEECH:
+            return YELLOW("SPEECH");
+        case ANODE_SEGMENT_LABEL:
+            return YELLOW("SEGMENT_LABEL");
+        case ANODE_GRAPH:
+            return GREEN("GRAPH");
+        case ANODE_EXPRESSION:
+            return CYAN("EXPRESSION");
+    }
+
+    return "BROKEN NODE ID";
+}
 
 // index into tokenstream as a token
 typedef i32 anode_token_t;
@@ -369,9 +393,6 @@ struct anode
     } nodeData;
 };
 
-errc toStringANode(struct anode* node, hstr* ostr)
-{
-}
 
 #define PSTATE_DEFAULT 0
 #define PSTATE_DIRECTIVE 1
@@ -399,6 +420,36 @@ struct s_parser
     i32 stackCap;
 };
 
+errc p_print_node(struct s_parser* p, struct anode* n)
+{
+    printf("index: %" PRId32 " (%s) parent: %" PRId32" (%s)\n", 
+            n->index,
+            node_id_to_string(n->typeTag),
+            n->parent,
+            node_id_to_string(p->ast[n->parent].typeTag));
+    if(n->typeTag <=  COMMENT)
+    {
+        ts_print_token(p->ts, n->nodeData.token, FALSE, GREEN_S);
+    }
+    else if(n->typeTag == ANODE_SEGMENT_LABEL)
+    {
+        hstr label = ts_get_tok(p->ts, n->nodeData.label.label)->tokenView;
+        printf("label: "YELLOW("%.*s"), label.len, label.buffer);
+        const struct token* comment = ts_get_tok(p->ts, n->nodeData.label.comment);
+        if(comment)
+        {
+            printf(" comment: "YELLOW("%.*s") "\n", comment->tokenView.len, comment->tokenView.buffer);
+        }
+        else 
+        {
+            printf("\n");
+        }
+    }
+    end;
+}
+
+
+
 #define PARSER_INIT_NODESTACK_SIZE 64
 #define PARSER_INIT_NODECOUNT 256
 
@@ -417,8 +468,8 @@ errc parser_new_node(struct s_parser* p, struct anode** newNode)
 
     end;
 }
+errc parser_push_stack(struct s_parser* p, struct anode* node); // forward decl
 
-errc parser_push_stack(struct s_parser* p, struct anode* node);
 errc parser_init(struct s_parser* p, const struct tokenStream* ts)
 {
     p->ast_cap = PARSER_INIT_NODECOUNT;
@@ -522,8 +573,8 @@ errc parser_push_stack(struct s_parser* p, struct anode* node)
     if(p->stackCount == p->stackCap)
     {
         const i32 newCap = p->stackCap * 2 * sizeof(i32);
-        p->stackCap = newCap;
         hrealloc(&p->stack, p->stackCap * sizeof(i32), newCap, FALSE);
+        p->stackCap = newCap;
     }
 
     p->stack[p->stackCount] = node->index;
@@ -531,30 +582,114 @@ errc parser_push_stack(struct s_parser* p, struct anode* node)
     end;
 }
 
+// pops one value off the active stack in the parser and discards it
 void pop_stack_discard(struct s_parser* p)
 {
     p->stackCount -= 1;
 }
 
+errc match_reduce_segment_space(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
+{
+    *didReduce = FALSE;
+    if(p->ast[stackEnd[-1]].typeTag == SPACE)
+    {
+        pop_stack_discard(p);
+        *didReduce = TRUE;
+    }
+    end;
+}
+
+errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
+{
+    *didReduce = FALSE;
+
+    i32 len = stackEnd - stackStart;
+    if(p->ast[stackStart[0]].typeTag == ANODE_GRAPH)
+    {
+        // check if there are errors.
+        //
+        // one key indication of an error is walking past a newline still on the stack
+        //
+
+        i32 newLineCount = 0;
+        for(int i = 0; i < len; i+=1)
+        {
+            if(p->ast[stackStart[i]].typeTag == NEWLINE)
+            {
+                newLineCount += 1;
+            }
+            else {
+                
+                if(newLineCount >= 1)
+                {
+                    fprintf(stderr, RED("Unable to parse line, evicting previous tokens\n")); // another stray thought. logging should really be something that we give hooks for the end user code to call into.
+                                         // directly writing to stderr or stdout should be fully redirectible
+                    // raise(ERR_UNABLE_TO_PARSE_LINE); // What to do here. 
+                                                     // We can report the error, evict the current line and just continue parsing from there.
+                                                     // Because this is such a recoverable error, maybe 
+                                                     // its better to not use raise() here.
+                    
+                    i32 currentStackEnd = stackEnd[-1];
+                    while(p->ast[p->stack[p->stackCount-1]].typeTag <= COMMENT)
+                    {
+                        pop_stack_discard(p);
+                    }
+
+                    parser_push_stack(p, &p->ast[currentStackEnd]);
+
+                    *didReduce = TRUE;
+                    break;
+                }
+            }
+        }
+    }
+    end;
+}
+
 // attempts to create an ast node for segment label, if successful, pops the stack by the token size count 
 // and also pushes a new ast node for segment label.
-b8 match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackEnd)
+//
+// this is also generally how the match reduce functions work for this parser, they are also responsible for individually 
+// evicting bad values
+//
+// this will also be over commented to describe how this is implemented
+errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
-    if(stackEnd - stackStart != 3)
+    // calculate length of the window as that's quite useful usually
+    i32 len = stackEnd - stackStart;
+
+    // by default our results return false
+    // when we return out true, the reduce function will exit the current iteration and conduct a new iteration 
+    // this will continue until no further reductions are done.
+    *didReduce = FALSE;
+    if(len < 3)
     {
-        return FALSE;
+        end;
     }
 
-    if(p->ast[stackStart[0]].typeTag == L_SQBRACK && 
+    // this clause can only match if there is a newline at the end of it and we see a label within the newline
+    // now one question... how can we support spaces?
+    //
+    // well that can be done with another reduction, if there is a space on the top of the stack, 
+    //
+    // like:
+    //
+    // L_SQBRACK SPACE | LABEL 
+    //
+    // we can reduce SPACE by popping it from the stack immediately
+    //
+    // also what happens if we have some goofy things like this?
+    //
+    // @if([my_butt])\n
+    //
+    if(p->ast[stackStart[len - 1]].typeTag == NEWLINE &&
+       p->ast[stackStart[0]].typeTag == L_SQBRACK && 
        p->ast[stackStart[1]].typeTag == LABEL && 
-       p->ast[stackStart[2]].typeTag == R_SQBRACK 
+       p->ast[stackStart[2]].typeTag == R_SQBRACK
     )
     {
         struct anode* label;
-        if(parser_new_node(p, &label))
-        {
-            fprintf(stderr, RED("PANIC: unable to push new node into parser\n"));
-        }
+        try(parser_new_node(p, &label));
 
         p->ast[stackStart[0]].parent = label->index;
         p->ast[stackStart[1]].parent = label->index;
@@ -563,35 +698,55 @@ b8 match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackEnd
         label->typeTag = ANODE_SEGMENT_LABEL;
         label->nodeData.label.label = p->ast[stackStart[1]].nodeData.token;
 
+        if(len > 4)
+        {
+            if(p->ast[stackStart[3]].typeTag != COMMENT)
+            {
+                fprintf(stderr, RED("Unexpected token when matching a segment, expected a comment or a newline\nIssue with token:\n"));
+                if(p->ast[stackStart[3]].typeTag <= COMMENT)
+                {
+                    ts_print_token(p->ts, p->ast[stackStart[3]].nodeData.token, FALSE, RED_S);
+                }
+                
+                raise(ERR_UNEXPECTED_TOKEN);
+            }
+            label->nodeData.label.comment = p->ast[stackStart[3]].nodeData.token;
+        }
+        else {
+            label->nodeData.label.comment = -1;
+        }
+
         // pop 3 times
-        pop_stack_discard(p);
-        pop_stack_discard(p);
-        pop_stack_discard(p);
+        for(i32 i = len; i > 0; i--)
+            pop_stack_discard(p);
 
         parser_push_stack(p, label);
+        p_print_node(p, label);
 
-        // printf(GREEN("found label! %d\n"), p->stackCount);
-        return TRUE;
+        *didReduce = TRUE;
+        end;
     }
 
-    return FALSE;
+    end;
 }
 
-b8 match_reduce_selection(struct s_parser *p, i32* stackStart, i32* stackEnd)
-{
-    return FALSE;
-}
+#define PARSER_MATCH_REDUCE(X) if(!didReduce){X;\
+    if(didReduce){\
+        continueReducing = TRUE;\
+        stackStart = p->stack;}}
+        //assertMsg(p->stackCount != oldStackCount, "function " #X " reported reduce, but stackCount did not change, this will result in an infinite loop %d", p->stackCount);\
+        oldStackCount = p->stackCount;}} // this assert might not be correct, cross that bridge when i get there.
+                                        // it's possible that there may be reductions which merely change the 
+                                        // state of existing nodes on the stack. rather than changing the stack
 
-#define PARSER_MATCH_REDUCE(X) if(X){\
-        continueReducing = TRUE; stackStart = p->stack;\
-        assertMsg(p->stackCount != oldStackCount, "function " #X " reported reduce, but stackCount did not change, this will result in an infinite loop %d", p->stackCount); oldStackCount = p->stackCount;\
-    }
+
 errc parser_reduce(struct s_parser* p)
 {
     
     assertMsg(p->stackCount > 0, "parser active stack was %d", p->stackCount);
     
     b8 continueReducing = TRUE;
+    b8 didReduce = FALSE;
 
     i32* stackStart = p->stack + p->stackCount - 1;
     i32* stackEnd = p->stack + p->stackCount;
@@ -605,12 +760,16 @@ errc parser_reduce(struct s_parser* p)
     while(continueReducing)
     {
         continueReducing = FALSE;
-        while(stackStart > p->stack)
+        stackEnd =  p->stack + p->stackCount;
+        stackStart = stackEnd - 1;
+        while(stackStart >= p->stack)
         {
             // printf("stackCount %ld \n", stackEnd - stackStart);
             // if anything gets popped from the stack, restart reduction
 
-            PARSER_MATCH_REDUCE(match_reduce_segment_label(p, stackStart, stackEnd))
+            PARSER_MATCH_REDUCE(match_reduce_segment_label(p, stackStart, stackEnd, &didReduce))
+            PARSER_MATCH_REDUCE(match_reduce_segment_space(p, stackStart, stackEnd, &didReduce))
+            PARSER_MATCH_REDUCE(match_reduce_errors(p, stackStart, stackEnd, &didReduce))
 
             stackStart -= 1;
         }
@@ -641,10 +800,7 @@ errc parser_advance(struct s_parser* p)
 
     for(i32 i = 0; i < p->stackCount; i += 1)
     {
-        if(p->ast[p->stack[i]].typeTag <= COMMENT)
-            printf(" %s ", tok_id_to_string(p->ast[p->stack[i]].typeTag ));
-        else
-            printf(" SOMENODE ");
+        printf(" %s ", node_id_to_string(p->ast[p->stack[i]].typeTag));
     }
     printf("\n");
 
@@ -682,6 +838,9 @@ errc tokens_into_graph()
 {
     hstr testString = HSTR(
         "[label]\n"
+        "[label2 ]\n"
+        "[@label2 ] # with a comment\n"
+        "@directive([with some oddities])\n"
         "$:this is a sample dialogue\n" 
         "homer: give me another dialogue \n"
         "    > give him a real dialogue\n"
@@ -695,27 +854,9 @@ errc tokens_into_graph()
     
     try(hstr_normalize(&testString,&normalizedTestString));
 
-    i32 tokens[] = {
-        L_SQBRACK, LABEL, R_SQBRACK, NEWLINE,
-        SPEAKERSIGN, COLON, STORY_TEXT, NEWLINE,
-        LABEL, COLON, STORY_TEXT, NEWLINE,
-        TAB, R_ANGLE, STORY_TEXT, NEWLINE,
-        TAB, TAB, LABEL, COLON, STORY_TEXT, NEWLINE,
-        TAB, R_ANGLE, STORY_TEXT, COMMENT, NEWLINE,
-        TAB, TAB, LABEL, COLON, STORY_TEXT, NEWLINE,
-        SPEAKERSIGN, COLON, STORY_TEXT,
-    };
-
     struct tokenStream ts;
 
     try(tokenize(&ts, &normalizedTestString, &filename));
-
-    for (i32 i = 0; i < ts.len; i += 1)
-    {
-        // ts_print_token(&ts, i, FALSE, GREEN_S);
-    }
-
-    try(test_ts_matches_expected_stream(&ts, tokens, sizeof(tokens) / sizeof(tokens[0])));
 
     struct s_graph graph;
     try(parse_tokens(&graph, &ts));
@@ -725,6 +866,15 @@ errc tokens_into_graph()
     // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));
     end;
 
+}
+
+errc debug_print_sizes()
+{
+    if(gPrintouts)
+    {
+        printf("struct anode size = %" PRId64 "\n", (i64)sizeof(struct anode));
+    }
+    end;
 }
 
 

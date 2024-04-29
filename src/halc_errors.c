@@ -47,7 +47,13 @@ const char* errc_to_string(errc code)
         case ERR_UNEXPECTED_REINITIALIZATION:
             return "Data structure is being initialized more than once.";
 
-        // testing
+
+        case ERR_UNEXPECTED_TOKEN:
+            return "Unexpected token encountered when parsing";
+        case ERR_UNABLE_TO_PARSE_LINE:
+            return "Unable to resolve/reduce a line past multiple newlines, this line failed";
+
+        // testing only errors
         case ERR_TEST_LEAKED_MEMORY:
             return "Memory tracking finished but allocations are outstanding.\n This indicates code path will leak memory at runtime";
         default: 

@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #include "halc_tokenizer.h"
 #include "halc_allocators.h"
@@ -442,8 +443,14 @@ errc ts_print_token_inner(const struct tokenStream* ts, struct token tok, b8 dry
     end;
 }
 
-errc ts_print_token(const struct tokenStream* ts, const u32 index, b8 dryRun, const char* color)
+errc ts_print_token(const struct tokenStream* ts, const i32 index, b8 dryRun, const char* color)
 {
+    if(index >= ts->len || index < 0)
+    {
+        fprintf(stderr, YELLOW("Warning: attempted to print invalid token reference in stream: %" PRId32), index);
+        end;
+    }
+
     struct token tok = ts->tokens[index];
     try(ts_print_token_inner(ts, tok, dryRun, color));
     end;
@@ -460,3 +467,33 @@ const char* tok_id_to_string(i32 id)
     }
     return "UNKNOWN_TOKEN_TYPE";
 }
+
+const char* ts_get_token_as_buffer(const struct tokenStream* ts, const i32 index)
+{
+    return ts->tokens[index].tokenView.buffer;
+}
+
+const struct token* ts_get_tok(const struct tokenStream* ts, i32 index)
+{
+    if(index == -1 ||  index >= ts->len)
+    {
+        return NULL;
+    }
+
+    return ts->tokens + index;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
