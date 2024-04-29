@@ -5,6 +5,24 @@
 
 EXTERN_C_BEGIN
 
+// =====
+// 
+// there are two main classes of issues, these are the ones that are covered by halc_errors these are the ones emitted by errc
+// 
+//
+// However within halcyon b/c this is intended to be a runtime, we should never crash on any kind of 
+// garbage input from the user.
+//
+// I think these should be called exceptions. eg if someone feeds in 
+//
+// [!THISIs mY Label!!!]
+//
+// this won't compile and the label is now malformed, this will raise a malformed label warning
+//
+// I know a lot of programs generally overuse warnings and 
+//
+// =====
+
 // =================== halc_errors =====================================
 //  errors in C are really annoying
 //
@@ -137,6 +155,7 @@ typedef int errc;
 
 // string errors
 #define ERR_STR_BAD_RESIZE 1000
+#define ERR_STR_OPERATION_ON_STATIC_HSTR 1100
 
 // File IO errors
 #define ERR_UNABLE_TO_OPEN_FILE 2000

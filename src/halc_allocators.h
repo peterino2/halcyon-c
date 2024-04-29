@@ -14,6 +14,7 @@ EXTERN_C_BEGIN
 // == statistics ==
 struct allocatorStats{
     i32 allocations;
+    i32 peakAllocationsCount;
     i64 allocatedSize;
     i64 peakAllocatedSize;
 };

@@ -45,7 +45,7 @@ errc load_file(hstr* out, const hstr* filePath)
     }
 
     char* buffer;
-    halloc(&buffer, fileSize); // FIXME_GOOD
+    halloc(&buffer, fileSize);
 
     if(fseek(file, 0, SEEK_SET) != 0)
     {

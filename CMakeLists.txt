@@ -13,8 +13,15 @@ add_executable( halcyon_test
 
 set_property(TARGET halcyon_test PROPERTY C_STANDARD 99)
 
-add_compile_options(-fsanitize=address -Wall -Werror)
-add_link_options(-fsanitize=address)
+add_compile_options(-Wall -Werror)
+
+if(CMAKE_BUILD_TYPE MATCHES "Debug")
+    add_compile_options(-fsanitize=address)
+    add_link_options(-fsanitize=address)
+endif()
+
+if(CMAKE_BUILD_TYPE MATCHES "Release")
+endif()
 
 set_property(TARGET halcyon_test PROPERTY COMPILE_WARNING_AS_ERROR ON)
 

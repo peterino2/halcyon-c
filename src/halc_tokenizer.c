@@ -13,7 +13,7 @@ errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
     // I'm estimating an average of 5 tokens every 80 characters.
     // Then doubling that. We can be far more conservative but memory feels cheap these days.
     
-    ts->capacity = ((source_length_hint / 40) + 1) * 8 * 2;
+    ts->capacity = source_length_hint >> 6 * 5; // ((source_length_hint / 40) + 1) * 8 * 2;
     halloc(&ts->tokens, ts->capacity * sizeof(struct token));
 
     end;
@@ -24,22 +24,11 @@ errc ts_resize(struct tokenStream* ts)
     struct token* oldTokens = ts->tokens;
     usize oldCapacity = ts->capacity;
 
-    // resize the array
-    ts->capacity *= 2;
     track_allocs("resize event");
-    struct token* newTokens;
-    halloc(&newTokens, ts->capacity * sizeof(struct token)); // FIXME_GOOD
 
-    // copy over data
-    for (i32 i = 0; i < oldCapacity; i += 1)
-    {
-        newTokens[i] = oldTokens[i];
-    }
-    
-    // free old array
-    hfree(oldTokens, sizeof(struct token));
-
-    ts->tokens = newTokens;
+    hrealloc(&ts->tokens, ts->capacity * sizeof(struct token), ts->capacity * sizeof(struct token) * 2, FALSE); // FIXME_GOOD
+                                                                                                            //
+    ts->capacity *= 2;
 
     end;
 }
@@ -172,7 +161,7 @@ errc tokenizer_advance(struct tokenizer* t)
 
         hstr view = {(char*) t->r, (u32)(t->c - t->r)};
 
-        struct token newToken = {COMMENT, view, *filename, t->lineNumber};
+        struct token newToken = {COMMENT, view, t->lineNumber};
         try(ts_push(t->ts, &newToken));
         t->r += view.len - 1;
         shouldBreak = TRUE;
@@ -182,12 +171,12 @@ errc tokenizer_advance(struct tokenizer* t)
     {
         if (*t->r == ':')
         {
-            struct token nt = { COLON, {(char*)t->r, 1}, *filename, t->lineNumber };
+            struct token nt = { COLON, {(char*)t->r, 1}, t->lineNumber };
             try(ts_push(t->ts, &nt));
         }
         if (*t->r == '>')
         {
-            struct token nt = { R_ANGLE, {(char*)t->r, 1}, *filename, t->lineNumber };
+            struct token nt = { R_ANGLE, {(char*)t->r, 1}, t->lineNumber };
             try(ts_push(t->ts, &nt));
         }
         t->r += 1;
@@ -204,7 +193,7 @@ errc tokenizer_advance(struct tokenizer* t)
         t->c++;
 
         hstr view = { (char*) t->r, (u32)(t->c - t->r)};
-        struct token newToken = { STORY_TEXT, view, *filename, t->lineNumber };
+        struct token newToken = { STORY_TEXT, view, t->lineNumber };
         try(ts_push(t->ts, &newToken));
         t->r += view.len;
         if (t->r > t->rEnd)
@@ -240,7 +229,7 @@ errc tokenizer_advance(struct tokenizer* t)
 
             if(hstr_match(&view, &Terminals[i]))
             {
-                struct token newToken = {i, view, *filename, t->lineNumber};
+                struct token newToken = {i, view, t->lineNumber};
                 t->r += Terminals[i].len - 1;
 
                 try(ts_push(t->ts, &newToken));
@@ -273,7 +262,7 @@ errc tokenizer_advance(struct tokenizer* t)
         while (t->c < t->rEnd && isAlphaNumeric(*t->c)) t->c++;
 
         hstr view = { (char*) t->r, (u32)(t->c - t->r)};
-        struct token newToken = { LABEL, view, *filename, t->lineNumber };
+        struct token newToken = { LABEL, view, t->lineNumber };
 
         try(ts_push(t->ts, &newToken));
         t->r += view.len - 1;
@@ -336,7 +325,7 @@ cleanup:
 
 void ts_free(struct tokenStream* ts)
 {
-    hfree(ts->tokens, sizeof(struct tokenStream) * ts->capacity);
+    hfree(ts->tokens, sizeof(struct token) * ts->capacity);
 }
 
 errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_view* offsets)
@@ -475,7 +464,7 @@ const char* ts_get_token_as_buffer(const struct tokenStream* ts, const i32 index
 
 const struct token* ts_get_tok(const struct tokenStream* ts, i32 index)
 {
-    if(index == -1 ||  index >= ts->len)
+    if(index == -1)
     {
         return NULL;
     }

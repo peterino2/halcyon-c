@@ -1,9 +1,17 @@
 
 #include "halc_allocators.h"
 #include "halc_strings.h"
+#include "halc_errors.h"
 
+#include <inttypes.h>
 #include <stdio.h>
+#include <stdarg.h>
 
+#define HSTR_VALIDATE_NOT_STATIC(X) do{if(X->cap == -1) raise(ERR_STR_OPERATION_ON_STATIC_HSTR);\
+    } while(0)
+
+#define HSTR_VALIDATE_NOT_STATIC_VOID(X) do{if(X->cap == -1) return;\
+    } while(0)
 
 // try to convert a given binary buffer into equivalent utf8 code points
 // also converts \r\n into \n
@@ -32,18 +40,52 @@ b8 hstr_match(const hstr* left, const hstr* right)
 
 void hstr_free(hstr* str) 
 {
-    if(str->len == 0)
+    HSTR_VALIDATE_NOT_STATIC_VOID(str);
+
+    if(str->len <= 0)
     {
         return;
     }
+
     hfree(str->buffer, str->cap);
     str->len = 0;
+    str->cap = 0;
     str->buffer = NULL;
+}
+
+void hstr_empty(hstr* str)
+{
+    HSTR_VALIDATE_NOT_STATIC_VOID(str);
+
+    str->len = 0;
+}
+
+errc hstr_reserve(hstr* str, u32 len)
+{
+    HSTR_VALIDATE_NOT_STATIC(str);
+
+    if (str->cap >= len)
+    {
+        end; // nothing to do, we're already the correct size
+    }
+
+    if(str->cap > 0)
+    {
+        hrealloc(&str->buffer, str->cap, len, FALSE);
+    }
+    else 
+    {
+        halloc(&str->buffer, len);
+    }
+
+    str->cap = len;
+
+    end;
 }
 
 errc hstr_normalize(const hstr* istr, hstr* ostr)
 {
-    // Allocate working buffer
+    // Allocate working buffer, it's garunteed to be smaller the input buffer.
     halloc(&ostr->buffer, istr->len); // FIXME_GOOD
     ostr->len = 0;
     ostr->cap = istr->len;
@@ -119,3 +161,52 @@ errc hstr_normalize(const hstr* istr, hstr* ostr)
 
     end;
 }
+
+errc hstr_printf(hstr* str, const char* fmt, ...)
+{
+    HSTR_VALIDATE_NOT_STATIC(str);
+    va_list args;
+    va_start (args, fmt);
+    int charsToWrite = vsnprintf(NULL, 0, fmt, args);
+
+    if(str->cap < str->len + charsToWrite)
+    {
+        hstr_reserve(str, str->len + charsToWrite + 1);
+    }
+
+    char* start = str->buffer + str->len;
+    vsnprintf(start, charsToWrite + 1, fmt, args);
+    str->len += charsToWrite;
+
+    va_end (args);
+    end;
+}
+
+void hstr_init(hstr* str)
+{
+    HSTR_VALIDATE_NOT_STATIC_VOID(str);
+    str->len = 0;
+    str->cap = 0;
+    str->buffer = NULL;
+}
+
+#ifndef NO_TESTS
+errc test_hstr_printf()
+{
+    hstr str;
+    hstr_init(&str);
+    try(hstr_printf(&str, "lol this is a printf %d", 32));
+    try(hstr_printf(&str, ". lol this is another one %s", "wu tang forever"));
+
+    // printf("\nthis is my string at the end '%s' len = %d\n", str.buffer, str.len);
+    // printf("view version: '%.*s'\n", 64, str.buffer);
+
+    assertCleanup(str.len == 64);
+    assertCleanup(str.cap == 64);
+
+cleanup:
+    hstr_free(&str);
+    
+    end;
+}
+#endif

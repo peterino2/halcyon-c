@@ -10,6 +10,7 @@
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
 
+#ifndef NO_TESTS
 // utilities tests
 errc loading_file_test() 
 {
@@ -187,6 +188,21 @@ errc tokenizer_test_random_utf8()
 
 cleanup:
     hstr_free(&content);
+    end;
+}
+
+errc test_tokenizer_stress()
+{
+    const hstr filename = HSTR("testfiles/stress_easy.halc");
+
+    hstr fileContents;
+    try(load_and_decode_from_file(&fileContents, &filename));
+    
+    struct tokenStream ts;
+    try(tokenize(&ts, &fileContents, &filename));
+
+    ts_free(&ts);
+    hstr_free(&fileContents);
     end;
 }
 
@@ -433,10 +449,9 @@ struct s_parser
 errc p_print_node(struct s_parser* p, struct anode* n)
 {
     printf("index: %" PRId32 " (%s) parent: %" PRId32" (%s)\n", 
-            n->index,
-            node_id_to_string(n->typeTag),
-            n->parent,
-            node_id_to_string(p->ast[n->parent].typeTag));
+            n->index, node_id_to_string(n->typeTag),
+            n->parent, node_id_to_string(p->ast[n->parent].typeTag));
+
     if(n->typeTag <=  COMMENT)
     {
         ts_print_token(p->ts, n->nodeData.token, FALSE, GREEN_S);
@@ -869,12 +884,14 @@ cleanup:
 }
 
 // tests first phase of parsing, converting a tokenstream into a graph of nodes
-errc tokens_into_graph()
+errc test_parser_labels()
 {
     hstr testString = HSTR(
         "[label]\n"
         "\t[label2 ]\n"
-        "[@label2 ] # with a comment\n"
+        "[@label2 ] # with a comment, this one should error with unexpected token in @\n"
+        "[label2 label2 ] # with a comment, this one should error with unexpected multiple tokens\n"
+        "[label2 32132 + - 2 32] absolutely fucked label\n"
         "@directive([with some oddities])\n"
         "$:this is a sample dialogue\n" 
         "homer: give me another dialogue \n"
@@ -883,6 +900,7 @@ errc tokens_into_graph()
         "    > nah, don't do that #[123456] why would you pick this\n"
         "        homer: you are the worst\n"
         "$:end of dialogue\n" );
+
     hstr filename = HSTR("no file");
 
     hstr normalizedTestString;
@@ -919,6 +937,12 @@ struct testEntry {
     errc (*testFunc)();
 };
 
+// test imports
+
+// halc_strings.c
+
+errc test_hstr_printf();
+
 #define TEST_IMPL(X, DESC) {#X ": " DESC, X}
 
 struct testEntry gTests[] = {
@@ -927,8 +951,10 @@ struct testEntry gTests[] = {
     TEST_IMPL(tokenizer_directives_basic, "testing tokenization of directives"),
     TEST_IMPL(tokenizer_full, "tokenizer full test"),
     TEST_IMPL(tokenizer_test_random_utf8, "testing safety on random utf8 strings being passed in"),
+    TEST_IMPL(test_tokenizer_stress, "testing tokenization on a larger set"),
     TEST_IMPL(token_printouts, "debugging token printouts"),
-    TEST_IMPL(tokens_into_graph, "parsing tokens into a graph")
+    TEST_IMPL(test_hstr_printf, "testing printf stuff in hstr"),
+    TEST_IMPL(test_parser_labels, "parsing tokens into a graph, specifically with error cases for labels")
 };
 
 i32 runAllTests()
@@ -951,7 +977,7 @@ i32 runAllTests()
             errorCode = errorCodeFromUntrack;
         }
 
-        printf(GREEN("stats - memory remaining at end of test: %0.3lfK (peak: %" "0.3lf" "K)\n"), ((double) stats.allocatedSize) / 1000.0, ((double)stats.peakAllocatedSize) / 1000.0);
+        printf(GREEN("stats - memory remaining at end of test: %0.3lfK (peak: %" "0.3lf" "K) peakAllocations: %" PRId32"\n"), ((double) stats.allocatedSize) / 1000.0, ((double)stats.peakAllocatedSize) / 1000.0, stats.peakAllocationsCount);
 
         if(errorCode != ERR_OK)
         {
@@ -1004,5 +1030,10 @@ int main(int argc, char** argv)
         }
     }
 
-    return runAllTests();
+    i32 results = runAllTests();
+
+    printf("sizeof(struct token) = %ld", sizeof(struct token));
+
+    return results;
 }
+#endif

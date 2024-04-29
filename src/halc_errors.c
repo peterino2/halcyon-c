@@ -22,6 +22,8 @@ const char* errc_to_string(errc code)
         // string errors
         case ERR_STR_BAD_RESIZE:
             return "Bad String Resize arguments, new size must be equal or larger.";
+        case ERR_STR_OPERATION_ON_STATIC_HSTR:
+            return "Attempted a mutating string operation on a statically allocated hstr";
 
         // File IO errors
         case ERR_UNABLE_TO_OPEN_FILE:

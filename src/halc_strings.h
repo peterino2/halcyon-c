@@ -7,16 +7,29 @@
 struct hstr{
     char* buffer;
     u32 len;
-    u32 cap;
+    i32 cap; // a value of 0 means no allocation is associated, a value of -1 means this is statically 
+             // allocated, and operations such as resize, or append are illegal
 };
 
 typedef struct hstr hstr;
 
+// returns true or false if the left hstr equals to the right hstr
 b8 hstr_match(const hstr* left, const hstr* right);
+
+// destroys an str
 void hstr_free(hstr* str);
 
-errc hstr_append(hstr* base, hstr* right);
-errc hstr_resize(hstr* ostr, u32 len);
+// prints INTO an existing hstr
+errc hstr_printf(hstr* str, const char* fmt, ...);
+
+// empties the string, retaining the current capacity
+void hstr_empty(hstr* str);
+
+// shrinks the string's capacity down to it's len, (not implemented - i haven't needed it yet)
+void hstr_shrink(hstr* str);
+
+// reserves at least (len) bytes in the string
+errc hstr_reserve(hstr* str, u32 len);
 
 // Gives back a string buffer with normalized line endings, 
 // we only support \n line ending and convert 
@@ -25,8 +38,10 @@ errc hstr_resize(hstr* ostr, u32 len);
 // spaces
 errc hstr_normalize(const hstr* istr, hstr* ostr);
 
+void hstr_init(hstr* str);
+
 // Do not count the null terminator as part of the length
-#define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1, 0} 
+#define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1, -1}
 
 #define arrayCount(X) sizeof(X) / sizeof(X[0])
 

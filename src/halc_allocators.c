@@ -21,6 +21,7 @@ static void init_allocator_stats()
     gAllocatorStats.allocations = 0;
     gAllocatorStats.allocatedSize = 0;
     gAllocatorStats.peakAllocatedSize = 0;
+    gAllocatorStats.peakAllocationsCount = 0;
 }
 
 void track_allocs(const char* contextString) 
@@ -55,9 +56,7 @@ errc untrack_allocs(struct allocatorStats* outTrackedAllocationStats)
 
 
 cleanup:
-    gAllocatorStats.allocations = 0;
-    gAllocatorStats.allocatedSize = 0;
-    gAllocatorStats.peakAllocatedSize = 0;
+    init_allocator_stats();
 
 #if TRACK_ALLOCATIONS
     gTrackAllocations = FALSE;
@@ -115,6 +114,11 @@ errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, 
     if(gAllocatorStats.allocatedSize > gAllocatorStats.peakAllocatedSize)
     {
         gAllocatorStats.peakAllocatedSize = gAllocatorStats.allocatedSize;
+    }
+
+    if(gAllocatorStats.allocations > gAllocatorStats.peakAllocationsCount)
+    {
+        gAllocatorStats.peakAllocationsCount = gAllocatorStats.allocations;
     }
 
 cleanup:

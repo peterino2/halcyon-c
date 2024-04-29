@@ -45,7 +45,6 @@ const char* tok_id_to_string(i32 id);
 struct token {
     enum tokenType tokenType;
     hstr tokenView;
-    hstr fileName;
     i32 lineNumber;
 };
 
