@@ -465,7 +465,7 @@ errc parser_new_node(struct s_parser* p, struct anode** newNode)
 
     *newNode = p->ast + p->ast_len;
     (*newNode)->index = p->ast_len;
-    (*newNode)->parent = -1;
+    (*newNode)->parent = 0;
     (*newNode)->typeTag = ANODE_INVALID;
     p->ast_len += 1;
 
