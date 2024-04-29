@@ -369,6 +369,10 @@ struct anode
     } nodeData;
 };
 
+errc toStringANode(struct anode* node, hstr* ostr)
+{
+}
+
 #define PSTATE_DEFAULT 0
 #define PSTATE_DIRECTIVE 1
 
@@ -720,6 +724,7 @@ errc tokens_into_graph()
     hstr_free(&normalizedTestString);
     // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));
     end;
+
 }
 
 
@@ -732,6 +737,7 @@ struct testEntry {
 #define TEST_IMPL(X, DESC) {#X ": " DESC, X}
 
 struct testEntry gTests[] = {
+    TEST_IMPL(debug_print_sizes, "checking sizes of various structs"),
     TEST_IMPL(loading_file_test, "simple file loading test"),
     TEST_IMPL(tokenizer_directives_basic, "testing tokenization of directives"),
     TEST_IMPL(tokenizer_full, "tokenizer full test"),

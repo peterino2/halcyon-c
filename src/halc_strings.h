@@ -15,6 +15,9 @@ typedef struct hstr hstr;
 b8 hstr_match(const hstr* left, const hstr* right);
 void hstr_free(hstr* str);
 
+errc hstr_append(hstr* base, hstr* right);
+errc hstr_resize(hstr* ostr, u32 len);
+
 // Gives back a string buffer with normalized line endings, 
 // we only support \n line ending and convert 
 // all line start spaces to TABs, will raise an halc_error 
