@@ -335,23 +335,31 @@ typedef i32 anode_token_t;
 struct anode_selection{
     anode_token_t storyText;
     anode_token_t comment;
+    i32 tabCount;
+    i32 extension;
+    i32 extensionCount;
 };
 
 struct anode_speech{
     anode_token_t speaker;
     anode_token_t storyText;
     anode_token_t comment;
+    i32 tabCount;
+    i32 extension;
+    i32 extensionCount;
 };
 
 struct anode_directive{
     anode_token_t commandLabel;
     i32 children;
     i32 childrenCount;
+    i32 tabCount;
 };
 
 struct anode_segment_label {
     anode_token_t label;
     anode_token_t comment;
+    i32 tabCount;
 };
 
 // goal of parser is to reduce, reduce, reduce until we get a graph
@@ -365,8 +373,6 @@ struct anode_expression {
     // children indexes storage
     // we don't dynamically resize or destroy or unload any of this shit so..
     // we could just have two pointers into a bump-allocated a_index_list
-    
-    i32 tabCount; // tab count of the line this parser node appears in, tabs are special and get ejected from the AST when parsing
 
     i32 children; // statically allocated childlist handle
     i32 childrenCount; // number of children in the indexlist
@@ -419,7 +425,10 @@ struct s_parser
     i32* stack;
     i32 stackCount;
     i32 stackCap;
+
+    i32 tabCount;
 };
+
 
 errc p_print_node(struct s_parser* p, struct anode* n)
 {
@@ -435,7 +444,7 @@ errc p_print_node(struct s_parser* p, struct anode* n)
     else if(n->typeTag == ANODE_SEGMENT_LABEL)
     {
         hstr label = ts_get_tok(p->ts, n->nodeData.label.label)->tokenView;
-        printf("label: "YELLOW("%.*s"), label.len, label.buffer);
+        printf("tab: % " PRId32 " label: "YELLOW("%.*s"), n->nodeData.label.tabCount, label.len, label.buffer);
         const struct token* comment = ts_get_tok(p->ts, n->nodeData.label.comment);
         if(comment)
         {
@@ -503,7 +512,8 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
     newNode->typeTag =  ANODE_GRAPH;
     newNode->nodeData.graph.children = -1;
     newNode->nodeData.graph.childrenCount = 0;
-
+    
+    p->tabCount = 0;
 
     try(parser_push_stack(p, newNode));
 
@@ -591,13 +601,25 @@ void pop_stack_discard(struct s_parser* p)
     p->stackCount -= 1;
 }
 
-errc match_reduce_segment_space(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
+errc match_reduce_space(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
     *didReduce = FALSE;
     if(p->ast[stackEnd[-1]].typeTag == SPACE)
     {
         pop_stack_discard(p);
         *didReduce = TRUE;
+    }
+    end;
+}
+
+errc match_reduce_tab(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
+{
+    *didReduce = FALSE;
+    if(p->ast[stackEnd[-1]].typeTag == TAB)
+    {
+        pop_stack_discard(p);
+        *didReduce = TRUE;
+        p->tabCount += 1;
     }
     end;
 }
@@ -646,6 +668,11 @@ errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackEnd, b8*
             }
         }
     }
+    end;
+}
+
+errc match_reduce_expression(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
+{
     end;
 }
 
@@ -700,6 +727,7 @@ errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackE
 
         label->typeTag = ANODE_SEGMENT_LABEL;
         label->nodeData.label.label = p->ast[stackStart[1]].nodeData.token;
+        label->nodeData.label.tabCount =  p->tabCount;
 
         if(len > 4)
         {
@@ -726,12 +754,15 @@ errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackE
         parser_push_stack(p, label);
         p_print_node(p, label);
 
+        p->tabCount = 0;
+
         *didReduce = TRUE;
         end;
     }
 
     end;
 }
+
 
 #define PARSER_MATCH_REDUCE(X) if(!didReduce){X;\
     if(didReduce){\
@@ -771,8 +802,9 @@ errc parser_reduce(struct s_parser* p)
             // if anything gets popped from the stack, restart reduction
 
             PARSER_MATCH_REDUCE(match_reduce_segment_label(p, stackStart, stackEnd, &didReduce))
-            PARSER_MATCH_REDUCE(match_reduce_segment_space(p, stackStart, stackEnd, &didReduce))
+            PARSER_MATCH_REDUCE(match_reduce_space(p, stackStart, stackEnd, &didReduce))
             PARSER_MATCH_REDUCE(match_reduce_errors(p, stackStart, stackEnd, &didReduce))
+            PARSER_MATCH_REDUCE(match_reduce_tab(p, stackStart, stackEnd, &didReduce))
 
             stackStart -= 1;
         }
@@ -841,7 +873,7 @@ errc tokens_into_graph()
 {
     hstr testString = HSTR(
         "[label]\n"
-        "[label2 ]\n"
+        "\t[label2 ]\n"
         "[@label2 ] # with a comment\n"
         "@directive([with some oddities])\n"
         "$:this is a sample dialogue\n" 
