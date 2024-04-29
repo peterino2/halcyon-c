@@ -171,7 +171,7 @@ errc hstr_printf(hstr* str, const char* fmt, ...)
 
     if(str->cap < (i32)(str->len + charsToWrite))
     {
-        hstr_reserve(str, str->len + charsToWrite + 1);
+        hstr_reserve(str, str->len + charsToWrite + 2);
     }
 
     char* start = str->buffer + str->len;
