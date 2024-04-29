@@ -301,7 +301,8 @@ enum ANodeType {
     ANODE_SPEECH, // ok
     ANODE_SEGMENT_LABEL,
     ANODE_EXPRESSION,
-    ANODE_GRAPH
+    ANODE_GRAPH,
+    ANODE_INVALID
 };
  
 const char* node_id_to_string(i32 id)
@@ -464,6 +465,8 @@ errc parser_new_node(struct s_parser* p, struct anode** newNode)
 
     *newNode = p->ast + p->ast_len;
     (*newNode)->index = p->ast_len;
+    (*newNode)->parent = -1;
+    (*newNode)->typeTag = ANODE_INVALID;
     p->ast_len += 1;
 
     end;
