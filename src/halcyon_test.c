@@ -643,7 +643,7 @@ errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackEnd, b8*
 {
     *didReduce = FALSE;
 
-    i32 len = stackEnd - stackStart;
+    i32 len = (i32)(stackEnd - stackStart);
     if(p->ast[stackStart[0]].typeTag == ANODE_GRAPH)
     {
         // check if there are errors.
@@ -701,7 +701,7 @@ errc match_reduce_expression(struct s_parser* p, i32* stackStart, i32* stackEnd,
 errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
     // calculate length of the window as that's quite useful usually
-    i32 len = stackEnd - stackStart;
+    i32 len = (i32)(stackEnd - stackStart);
 
     // by default our results return false
     // when we return out true, the reduce function will exit the current iteration and conduct a new iteration 
@@ -782,9 +782,9 @@ errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32* stackE
 #define PARSER_MATCH_REDUCE(X) if(!didReduce){X;\
     if(didReduce){\
         continueReducing = TRUE;\
-        stackStart = p->stack;}}
-        //assertMsg(p->stackCount != oldStackCount, "function " #X " reported reduce, but stackCount did not change, this will result in an infinite loop %d", p->stackCount);\
-        oldStackCount = p->stackCount;}} // this assert might not be correct, cross that bridge when i get there.
+        stackStart = (i32*)p->stack;}}
+        //assertMsg(p->stackCount != oldStackCount, "function " #X " reported reduce, but stackCount did not change, this will result in an infinite loop %d", p->stackCount);
+        // oldStackCount = p->stackCount;}} // this assert might not be correct, cross that bridge when i get there.
                                         // it's possible that there may be reductions which merely change the 
                                         // state of existing nodes on the stack. rather than changing the stack
 
@@ -1031,8 +1031,6 @@ int main(int argc, char** argv)
     }
 
     i32 results = runAllTests();
-
-    printf("sizeof(struct token) = %ld", sizeof(struct token));
 
     return results;
 }

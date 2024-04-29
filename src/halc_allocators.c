@@ -158,6 +158,12 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
         raise(ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED);
     }
 
+    if (size == 0)
+    {
+        halloc_advanced(ptr, newSize, file, lineNumber, func);
+        end;
+    }
+
     // allocate new memory
     void* new = gDefaultAllocator.malloc_fn(newSize);
     if(!new)

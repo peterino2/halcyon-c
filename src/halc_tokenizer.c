@@ -14,7 +14,14 @@ errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
     // Then doubling that. We can be far more conservative but memory feels cheap these days.
     
     ts->capacity = source_length_hint >> 6 * 5; // ((source_length_hint / 40) + 1) * 8 * 2;
-    halloc(&ts->tokens, ts->capacity * sizeof(struct token));
+
+    if (ts->capacity == 0)
+    {
+        ts->capacity = 64;
+    }
+
+    if(ts->capacity)
+        halloc(&ts->tokens, ts->capacity * sizeof(struct token));
 
     end;
 }
@@ -325,7 +332,8 @@ cleanup:
 
 void ts_free(struct tokenStream* ts)
 {
-    hfree(ts->tokens, sizeof(struct token) * ts->capacity);
+    if(ts->capacity > 0)
+        hfree(ts->tokens, sizeof(struct token) * ts->capacity);
 }
 
 errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, struct tok_view* offsets)
