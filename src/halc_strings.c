@@ -168,17 +168,19 @@ errc hstr_printf(hstr* str, const char* fmt, ...)
     va_list args;
     va_start (args, fmt);
     int charsToWrite = vsnprintf(NULL, 0, fmt, args);
+    va_end (args);
 
-    if(str->cap < (i32)(str->len + charsToWrite))
+    if(str->cap < (i32)(str->len + charsToWrite + 1))
     {
         hstr_reserve(str, str->len + charsToWrite + 1);
     }
 
+    va_start (args, fmt);
     char* start = str->buffer + str->len;
     vsnprintf(start, charsToWrite + 1, fmt, args);
     str->len += charsToWrite;
-
     va_end (args);
+
     end;
 }
 
