@@ -9,6 +9,7 @@ add_executable( halcyon_test
     src/halc_strings.c
     src/halc_tokenizer.c
     src/halc_files.c
+    src/halc_parser.c
 )
 
 set_property(TARGET halcyon_test PROPERTY C_STANDARD 99)
