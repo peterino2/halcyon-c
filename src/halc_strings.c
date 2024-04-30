@@ -165,18 +165,20 @@ errc hstr_normalize(const hstr* istr, hstr* ostr)
 errc hstr_printf(hstr* str, const char* fmt, ...)
 {
     HSTR_VALIDATE_NOT_STATIC(str);
-    va_list args;
-    va_start (args, fmt);
-    int charsToWrite = vsnprintf(NULL, 0, fmt, args);
+    va_list args, copy;
+    va_start(args, fmt);
+    va_copy(copy, args);
+    int charsToWrite = vsnprintf(NULL, 0, fmt, copy);
+    va_end(copy);
 
     if(str->cap < (i32)(str->len + charsToWrite + 1))
     {
         hstr_reserve(str, str->len + charsToWrite + 1);
     }
 
-    // char* start = str->buffer + str->len;
-    // vsnprintf(start, charsToWrite + 1, fmt, args);
-    // str->len += charsToWrite;
+    char* start = str->buffer + str->len;
+    vsnprintf(start, charsToWrite + 1, fmt, args);
+    str->len += charsToWrite;
     va_end (args);
 
     end;
