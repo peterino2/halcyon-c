@@ -184,7 +184,6 @@ errc hstr_printf(hstr* str, const char* fmt, ...)
 
 void hstr_init(hstr* str)
 {
-    HSTR_VALIDATE_NOT_STATIC_VOID(str);
     str->len = 0;
     str->cap = 0;
     str->buffer = NULL;
