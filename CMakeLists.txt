@@ -14,7 +14,7 @@ add_executable( halcyon_test
 
 set_property(TARGET halcyon_test PROPERTY C_STANDARD 99)
 
-add_compile_options(-Wall)# -Werror)
+add_compile_options(-Wall -Werror)
 add_compile_options(-fsanitize=address)
 add_compile_options(-g)
 add_link_options(-fsanitize=address)
