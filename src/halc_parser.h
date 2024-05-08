@@ -7,6 +7,7 @@
 
 
 struct anode;
+struct s_parser;
 
 struct s_node
 {
