@@ -151,15 +151,19 @@ const char* node_id_to_string(i32 id)
             return YELLOW("SEGMENT_LABEL");
         case ANODE_EXPRESSION:
             return CYAN("EXPRESSION");
+        case ANODE_EXTENSION:
+            return YELLOW("EXTENSION");
         case ANODE_DIRECTIVE:
             return YELLOW("DIRECTIVE");
         case ANODE_GOTO:
             return PURPLE("GOTO");
+        case ANODE_END:
+            return PURPLE("END");
         case ANODE_GRAPH:
             return GREEN("GRAPH");
     }
 
-    return "BROKEN NODE ID";
+    return RED("BROKEN_NODE_ID");
 }
 
 errc p_print_node(struct s_parser* p, struct anode* n, const char* pointerColor)
@@ -532,6 +536,7 @@ static errc match_forward_end(struct s_parser* p, i32* stackStart, i32* stackEnd
     {
         halc_end;
     }
+
     
     if(p_getTypeTag(p, stackStart[0]) != AT || 
        p_getTypeTag(p, stackStart[1]) != LABEL ||
@@ -548,6 +553,7 @@ static errc match_forward_end(struct s_parser* p, i32* stackStart, i32* stackEnd
     {
         halc_end;
     }
+
 
     struct anode* newNode;
     halc_try(parser_new_node(p, &newNode));
@@ -972,6 +978,8 @@ static errc parser_reduce(struct s_parser* p)
 
         if(!matched)
             halc_try(match_forward_goto(p, tokenStackStart, stackEnd, &matched));
+        if(!matched)
+            halc_try(match_forward_end(p, tokenStackStart, stackEnd, &matched));
         if(!matched)
             halc_try(match_forward_directive(p, tokenStackStart, stackEnd, &matched));
         if(!matched) 

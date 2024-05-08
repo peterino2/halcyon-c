@@ -268,6 +268,7 @@ static errc parse_test_with_string(hstr* testString)
 // tests first phase of parsing, converting a tokenstream into a graph of nodes
 static errc test_parser_labels()
 {
+    halc_set_parser_run_verbose();
     hstr testString = HSTR(
         "[label]\n"
         "\t[label2 ]\n"
@@ -275,6 +276,9 @@ static errc test_parser_labels()
         "[label2 label2 ] # with a comment, this one should error with unexpected multiple tokens\n"
         "[label2 32132 + - 2 32] absolutely fucked label\n"
         "$: this is some speech to end it with\n"
+        "@goto some.thing\n"
+        "@end\n"
+        "$: more speech\n"
         );
 
 
