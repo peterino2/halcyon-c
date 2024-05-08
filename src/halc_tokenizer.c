@@ -23,7 +23,7 @@ errc ts_initialize(struct tokenStream* ts, i32 source_length_hint)
     if(ts->capacity)
         halloc(&ts->tokens, ts->capacity * sizeof(struct token));
 
-    end;
+    halc_end;
 }
 
 errc ts_resize(struct tokenStream* ts)
@@ -37,20 +37,20 @@ errc ts_resize(struct tokenStream* ts)
                                                                                                             //
     ts->capacity *= 2;
 
-    end;
+    halc_end;
 }
 
 errc ts_push(struct tokenStream* ts, struct token* tok)
 {
     if(ts->len >= ts->capacity)
     {
-        try(ts_resize(ts));
+        halc_try(ts_resize(ts));
     }
 
     ts->tokens[ts->len] = *tok;
     ts->len += 1;
 
-    end;
+    halc_end;
 }
 
 const char* tokenTypeStrings[] = {
@@ -169,7 +169,7 @@ errc tokenizer_advance(struct tokenizer* t)
         hstr view = {(char*) t->r, (u32)(t->c - t->r)};
 
         struct token newToken = {COMMENT, view, t->lineNumber};
-        try(ts_push(t->ts, &newToken));
+        halc_try(ts_push(t->ts, &newToken));
         t->r += view.len - 1;
         shouldBreak = TRUE;
     }
@@ -179,12 +179,12 @@ errc tokenizer_advance(struct tokenizer* t)
         if (*t->r == ':')
         {
             struct token nt = { COLON, {(char*)t->r, 1}, t->lineNumber };
-            try(ts_push(t->ts, &nt));
+            halc_try(ts_push(t->ts, &nt));
         }
         if (*t->r == '>')
         {
             struct token nt = { R_ANGLE, {(char*)t->r, 1}, t->lineNumber };
-            try(ts_push(t->ts, &nt));
+            halc_try(ts_push(t->ts, &nt));
         }
         t->r += 1;
 
@@ -201,7 +201,7 @@ errc tokenizer_advance(struct tokenizer* t)
 
         hstr view = { (char*) t->r, (u32)(t->c - t->r)};
         struct token newToken = { STORY_TEXT, view, t->lineNumber };
-        try(ts_push(t->ts, &newToken));
+        halc_try(ts_push(t->ts, &newToken));
         t->r += view.len;
         if (t->r > t->rEnd)
         {
@@ -214,7 +214,7 @@ errc tokenizer_advance(struct tokenizer* t)
                     ts_print_token(t->ts, t->ts->len - 1, FALSE, RED_S);
                 }
             }
-            raise(ERR_TOKENIZER_POINTER_OVERFLOW);
+            halc_raise(ERR_TOKENIZER_POINTER_OVERFLOW);
         }
         while (*t->r == ' ') t->r++;
         t->r--;
@@ -239,7 +239,7 @@ errc tokenizer_advance(struct tokenizer* t)
                 struct token newToken = {i, view, t->lineNumber};
                 t->r += Terminals[i].len - 1;
 
-                try(ts_push(t->ts, &newToken));
+                halc_try(ts_push(t->ts, &newToken));
 
                 if(i == NEWLINE)
                 {
@@ -271,7 +271,7 @@ errc tokenizer_advance(struct tokenizer* t)
         hstr view = { (char*) t->r, (u32)(t->c - t->r)};
         struct token newToken = { LABEL, view, t->lineNumber };
 
-        try(ts_push(t->ts, &newToken));
+        halc_try(ts_push(t->ts, &newToken));
         t->r += view.len - 1;
         shouldBreak = TRUE;
     }
@@ -287,19 +287,19 @@ errc tokenizer_advance(struct tokenizer* t)
                 ts_print_token(t->ts, t->ts->len - 1, FALSE, RED_S);
             }
         }
-        raise(ERR_UNRECOGNIZED_TOKEN);
+        halc_raise(ERR_UNRECOGNIZED_TOKEN);
     }
 
     t->r += 1;
     shouldBreak = FALSE;
 
-    end;
+    halc_end;
 }
 
 errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 {
     track_allocs("ts_initialize");
-    try(ts_initialize(ts, source->len));
+    halc_try(ts_initialize(ts, source->len));
     ts->source = *source;
     ts->filename = *filename;
 
@@ -320,14 +320,14 @@ errc tokenize(struct tokenStream* ts, const hstr* source, const hstr* filename)
 
     while(t.r < t.rEnd)
     {
-        tryCleanup(tokenizer_advance(&t));
+        halc_tryCleanup(tokenizer_advance(&t));
     }
 
-    end;
+    halc_end;
 
 cleanup:
     ts_free(ts);
-    end;
+    halc_end;
 }
 
 void ts_free(struct tokenStream* ts)
@@ -346,8 +346,8 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
     const char* l = tok->tokenView.buffer;
     const char* sEnd = source->buffer + source->len;
 
-    if (l > sEnd) raiseCleanup(ERR_TOKEN_OUT_OF_RANGE);
-    if (l < source->buffer) raiseCleanup(ERR_TOKEN_OUT_OF_RANGE);
+    if (l > sEnd) halc_raiseCleanup(ERR_TOKEN_OUT_OF_RANGE);
+    if (l < source->buffer) halc_raiseCleanup(ERR_TOKEN_OUT_OF_RANGE);
 
     if (*tok->tokenView.buffer == '\n')
     {
@@ -384,14 +384,14 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
     out->len = (u32)(lend - lstart);
 
 cleanup:
-    end;
+    halc_end;
 }
 
 errc ts_print_token_inner(const struct tokenStream* ts, struct token tok, b8 dryRun, const char* color)
 {
     hstr sl;
     struct tok_view offsets;
-    try(tok_get_sourceline(&tok, &ts->source, &sl, &offsets));
+    halc_try(tok_get_sourceline(&tok, &ts->source, &sl, &offsets));
 
     if (dryRun)
     {
@@ -437,7 +437,7 @@ errc ts_print_token_inner(const struct tokenStream* ts, struct token tok, b8 dry
     printf(RESET_S);
 
     printf("%s(%d)\n",tokenTypeStrings[tok.tokenType], tok.tokenType);
-    end;
+    halc_end;
 }
 
 errc ts_print_token(const struct tokenStream* ts, const i32 index, b8 dryRun, const char* color)
@@ -445,12 +445,12 @@ errc ts_print_token(const struct tokenStream* ts, const i32 index, b8 dryRun, co
     if(index >= ts->len || index < 0)
     {
         fprintf(stderr, YELLOW("Warning: attempted to print invalid token reference in stream: %" PRId32), index);
-        end;
+        halc_end;
     }
 
     struct token tok = ts->tokens[index];
-    try(ts_print_token_inner(ts, tok, dryRun, color));
-    end;
+    halc_try(ts_print_token_inner(ts, tok, dryRun, color));
+    halc_end;
 }
 
 // we can easily implement a multi_tok version of this which takes two tokens and merges them from start to finish,

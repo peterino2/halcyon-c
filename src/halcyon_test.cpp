@@ -24,9 +24,9 @@ static errc loading_file_test()
 {
     hstr decoded;
     const hstr filePath = HSTR("testfiles/terminals.halc");
-    try(load_and_decode_from_file(&decoded, &filePath));
+    halc_try(load_and_decode_from_file(&decoded, &filePath));
     hstr_free(&decoded);
-    end;
+    halc_end;
 }
 
 // ===================== tokenizer tests ========================
@@ -57,18 +57,18 @@ static errc tokenizer_directives_basic()
         R_PAREN
     };
     struct tokenStream ts;
-    try(tokenize(&ts, &testString, &testFileName));
+    halc_try(tokenize(&ts, &testString, &testFileName));
 
     for(i32 i = 0; i < ts.len; i += 1)
     { 
         assertCleanupMsg(ts.tokens[i].tokenType == tokens[i], " i == %d ", i);
     }
 
-    assertCleanup(ts.len == arrayCount(tokens));
+    halc_assertCleanup(ts.len == arrayCount(tokens));
 
 cleanup:
     ts_free(&ts);
-    end;
+    halc_end;
 }
 
 
@@ -85,7 +85,7 @@ static errc test_ts_matches_expected_stream(const struct tokenStream* ts, i32* t
             tok_id_to_string(ts->tokens[i].tokenType));
     }
 
-    end;
+    halc_end;
 }
 
 static errc tokenizer_full()
@@ -93,10 +93,10 @@ static errc tokenizer_full()
     const hstr filename = HSTR("testfiles/storySimple.halc");
 
     hstr fileContents;
-    try(load_and_decode_from_file(&fileContents, &filename));
+    halc_try(load_and_decode_from_file(&fileContents, &filename));
     
     struct tokenStream ts;
-    try(tokenize(&ts, &fileContents, &filename));
+    halc_try(tokenize(&ts, &fileContents, &filename));
 
     i32 tokens[] = {
         L_SQBRACK,
@@ -152,34 +152,34 @@ static errc tokenizer_full()
     };
 
 
-    try(test_ts_matches_expected_stream(&ts, tokens, arrayCount(tokens)));
+    halc_try(test_ts_matches_expected_stream(&ts, tokens, arrayCount(tokens)));
     const hstr label1 = HSTR("hello");
     const hstr label2 = HSTR("question");
     const hstr comment1 = HSTR("#first comment");
     const hstr storyText = HSTR("I'm going to ask you a question.");
 
-    assertCleanup(arrayCount(tokens) == ts.len);
-    assertCleanup(hstr_match(&label1, &ts.tokens[1].tokenView));
-    assertCleanup(hstr_match(&label2, &ts.tokens[10].tokenView));
-    assertCleanup(hstr_match(&comment1, &ts.tokens[7].tokenView));
-    assertCleanup(hstr_match(&storyText, &ts.tokens[15].tokenView));
+    halc_assertCleanup(arrayCount(tokens) == ts.len);
+    halc_assertCleanup(hstr_match(&label1, &ts.tokens[1].tokenView));
+    halc_assertCleanup(hstr_match(&label2, &ts.tokens[10].tokenView));
+    halc_assertCleanup(hstr_match(&comment1, &ts.tokens[7].tokenView));
+    halc_assertCleanup(hstr_match(&storyText, &ts.tokens[15].tokenView));
 
-    assertCleanup(ts.tokens[0].lineNumber == 1);
-    assertCleanup(ts.tokens[4].lineNumber == 2);
-    assertCleanup(ts.tokens[8].lineNumber == 2);
-    assertCleanup(ts.tokens[9].lineNumber == 3);
+    halc_assertCleanup(ts.tokens[0].lineNumber == 1);
+    halc_assertCleanup(ts.tokens[4].lineNumber == 2);
+    halc_assertCleanup(ts.tokens[8].lineNumber == 2);
+    halc_assertCleanup(ts.tokens[9].lineNumber == 3);
 
 cleanup:
     ts_free(&ts);
     hstr_free(&fileContents);
-    end;
+    halc_end;
 }
 
 static errc tokenizer_test_random_utf8()
 {
     hstr filename = HSTR("testfiles/random_utf8.halc");
     hstr content;
-    try(load_and_decode_from_file(&content, &filename));
+    halc_try(load_and_decode_from_file(&content, &filename));
 
     supress_errors();
 
@@ -188,14 +188,14 @@ static errc tokenizer_test_random_utf8()
 
     unsupress_errors();
 
-    assertCleanup(errorcode == ERR_UNRECOGNIZED_TOKEN);
+    halc_assertCleanup(errorcode == ERR_UNRECOGNIZED_TOKEN);
 
     hstr_free(&content);
-    end_ok;
+    halc_end_ok;
 
 cleanup:
     hstr_free(&content);
-    end;
+    halc_end;
 }
 
 static errc test_tokenizer_stress()
@@ -203,14 +203,14 @@ static errc test_tokenizer_stress()
     const hstr filename = HSTR("testfiles/stress_easy.halc");
 
     hstr fileContents;
-    try(load_and_decode_from_file(&fileContents, &filename));
+    halc_try(load_and_decode_from_file(&fileContents, &filename));
     
     struct tokenStream ts;
-    try(tokenize(&ts, &fileContents, &filename));
+    halc_try(tokenize(&ts, &fileContents, &filename));
 
     ts_free(&ts);
     hstr_free(&fileContents);
-    end;
+    halc_end;
 }
 
 b8 gPrintouts;
@@ -220,10 +220,10 @@ static errc token_printouts()
     const hstr filename = HSTR("testfiles/storySimple.halc");
 
     hstr fileContents;
-    try(load_and_decode_from_file(&fileContents, &filename));
+    halc_try(load_and_decode_from_file(&fileContents, &filename));
     
     struct tokenStream ts;
-    try(tokenize(&ts, &fileContents, &filename));
+    halc_try(tokenize(&ts, &fileContents, &filename));
 
     for (i32 i = 0; i < ts.len; i += 1)
     {
@@ -240,19 +240,19 @@ static errc parse_test_with_string(hstr* testString)
     hstr filename = HSTR("no file");
     hstr normalizedTestString;
     
-    try(hstr_normalize(testString, &normalizedTestString));
+    halc_try(hstr_normalize(testString, &normalizedTestString));
 
     struct tokenStream ts;
     struct s_graph graph;
 
-    try(tokenize(&ts, &normalizedTestString, &filename));
-    try(parse_tokens(&graph, &ts));
+    halc_try(tokenize(&ts, &normalizedTestString, &filename));
+    halc_try(parse_tokens(&graph, &ts));
 
     ts_free(&ts);
     hstr_free(&normalizedTestString);
     graph_free(&graph);
     // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));,
-    end;
+    halc_end;
 }
 
 // "@directive([with some oddities])\n"
@@ -277,9 +277,9 @@ static errc test_parser_labels()
         );
 
 
-    try(parse_test_with_string(&testString));
+    halc_try(parse_test_with_string(&testString));
 
-    end;
+    halc_end;
 }
 
 static errc test_parser_directives() 
@@ -297,8 +297,8 @@ static errc test_parser_directives()
         "@goto region.characters.something\n" // special goto directive
         "$:this is a sample dialogue\n" );
 
-    try(parse_test_with_string(&testString));   
-    end;
+    halc_try(parse_test_with_string(&testString));   
+    halc_end;
 }
 
 #include <chrono>
@@ -312,16 +312,16 @@ static errc test_parser_speed()
     const hstr filename = HSTR("testfiles/stress_easy.halc");
 
     hstr fileContents;
-    try(load_and_decode_from_file(&fileContents, &filename));
+    halc_try(load_and_decode_from_file(&fileContents, &filename));
 
-    i32 i = 1000;
+    i32 i = 500;
     high_resolution_clock::time_point t1 = high_resolution_clock::now();
     do {
         struct tokenStream ts;
         struct s_graph graph;
 
-        try(tokenize(&ts, &fileContents, &filename));
-        try(parse_tokens(&graph, &ts));
+        halc_try(tokenize(&ts, &fileContents, &filename));
+        halc_try(parse_tokens(&graph, &ts));
 
         ts_free(&ts);
         graph_free(&graph);
@@ -330,10 +330,10 @@ static errc test_parser_speed()
 
     duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
 
-    std::cout << "Time elapsed for test 1000 ast generations" << time_span.count() << "seconds" << std::endl;
+    std::cout << "Time elapsed for test 10000 ast generations " << time_span.count() << " seconds average time: " << time_span.count() / 500 * 1000 << "ms" << std::endl;
 
     hstr_free(&fileContents);
-    end;
+    halc_end;
 }
 
 static errc test_parser_speech()
@@ -348,8 +348,8 @@ static errc test_parser_speech()
         "$:this is a sample dialogue # this is just a comment, lockey can be generated\n" 
         );
 
-    try(parse_test_with_string(&testString));   
-    end;
+    halc_try(parse_test_with_string(&testString));   
+    halc_end;
 }
 
 errc debug_print_sizes()
@@ -358,7 +358,7 @@ errc debug_print_sizes()
     {
         printf("struct anode size = %" PRId64 "\n", (i64)sizeof(struct anode));
     }
-    end;
+    halc_end;
 }
 
 

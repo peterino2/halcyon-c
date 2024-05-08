@@ -42,7 +42,7 @@ EXTERN_C_BEGIN
 //          herror("Negative 1 passed in, this is a big issue");
 //      }
 //
-//      end;
+//      halc_end;
 //  }
 //
 //  end is basically a natural 'return ERR_OK;'
@@ -62,18 +62,18 @@ EXTERN_C_BEGIN
 //
 //  eg:
 //
-//      try(myErrorableFunction(2));
+//      halc_try(myErrorableFunction(2));
 //
 //  roughly equivalent to:
 //
 //      int errorcode = myErrorableFunction();
 //      if(errorcode)
 //      {
-//          raise(errorcode);
+//          halc_raise(errorcode);
 //      }
 //
 //
-// there is also _Cleanup() versions of both raise() and try()
+// there is also _Cleanup() versions of both halc_raise() and halc_try()
 //
 // which kick the code execution to a cleanup label in your function, 
 // useful if you want to leave some code in to back-out side effects on error.
@@ -87,12 +87,12 @@ EXTERN_C_BEGIN
 //
 //      if(bytesRead != expectedSize )
 //      {
-//          raiseCleanup(ERR_UNABLE_TO_OPEN_FILE);
+//          halc_raiseCleanup(ERR_UNABLE_TO_OPEN_FILE);
 //      }
 //
 //  cleanup:
 //     hfree(bufferContents);
-//     end;
+//     halc_end;
 // }
 //
 // you'll notice a limitation here, what if we have more than failable operations 
@@ -100,9 +100,9 @@ EXTERN_C_BEGIN
 //
 // eg. 
 //
-//  try(createFile(&file1, ..))
-//  tryCleanup(createFile(&file2, ..))
-//  tryCleanup(createFile(&file3, ..)) // if this one fails file2 will be leaked.
+//  halc_try(createFile(&file1, ..))
+//  halc_tryCleanup(createFile(&file2, ..))
+//  halc_tryCleanup(createFile(&file3, ..)) // if this one fails file2 will be leaked.
 //  destroyFile(file3);
 //  destroyFile(file2);
 // cleanup:
@@ -114,7 +114,7 @@ EXTERN_C_BEGIN
 // initializers in one function.
 //
 // for situations like that I reccomend manual checking of errcs returned from each 
-// function along with raise() and manual cleanup is preferred.
+// function along with halc_raise() and manual cleanup is preferred.
 //
 // eg.
 //
@@ -122,23 +122,23 @@ EXTERN_C_BEGIN
 //
 // if(error = !createFile(&file1, ..))
 // {
-//    raise(error);
+//    halc_raise(error);
 // }
 //
 // if(error = createFile(&file2, ..))
 // {
 //    destroyFile(file1);
-//    raise(error);
+//    halc_raise(error);
 // }
 //
 // if(error = createFile(&file3, ..))
 // {
 //    destroyFile(file1);
 //    destroyFile(file2);
-//    raise(error);
+//    halc_raise(error);
 // }
 //
-// end;
+// halc_end;
 // 
 // ======================================================================
 
@@ -185,44 +185,44 @@ const char* errc_to_string(errc code);
 void error_print(errc code, const char* C, const char* F, int L);
 
 // ==================== Errors Library ==================
-#define tryx(X) if((gErrorCatch = X)) {\
+#define halc_try(X) if((gErrorCatch = X)) {\
     error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     return gErrorCatch;\
 }
 
-#define tryCleanup(X) if((gErrorCatch = X)) {\
+#define halc_tryCleanup(X) if((gErrorCatch = X)) {\
     error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     goto cleanup;\
 }
 
-#define ensure(X) if((gErrorCatch = X)) {\
+#define halc_ensure(X) if((gErrorCatch = X)) {\
     error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     abort();\
 } \
 
-#define end return gErrorCatch;
-#define end_ok do{gErrorCatch = ERR_OK;}while(0)
+#define halc_end return gErrorCatch;
+#define halc_end_ok do{gErrorCatch = ERR_OK;}while(0)
 
 // use if your code has a cleanup: section
-#define raiseCleanup(X) do{ \
+#define halc_raiseCleanup(X) do{ \
     gErrorCatch = X;\
     error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     goto cleanup; }while(0)
 
 // use only if your code doesn't have a cleanup section
-#define raise(X) do {\
+#define halc_raise(X) do {\
         gErrorCatch = X;\
         error_print(gErrorCatch, #X, __FILE__, __LINE__);\
         return gErrorCatch;\
     }while(0)
 
-#define assert(X) if(!(X)) {raise(ERR_ASSERTION_FAILED); }
+#define halc_assert(X) if(!(X)) { halc_raise(ERR_ASSERTION_FAILED); }
 
-#define assertCleanup(X) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n"); raiseCleanup(ERR_ASSERTION_FAILED); }
+#define halc_assertCleanup(X) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n"); halc_raiseCleanup(ERR_ASSERTION_FAILED); }
 
-#define assertCleanupMsg(X, FMT, ...) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n with message:\n " FMT, __VA_ARGS__); raiseCleanup(ERR_ASSERTION_FAILED); }
+#define assertCleanupMsg(X, FMT, ...) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n with message:\n " FMT, __VA_ARGS__); halc_raiseCleanup(ERR_ASSERTION_FAILED); }
 
-#define assertMsg(X, FMT, ...) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n with message:\n " FMT, __VA_ARGS__); raise(ERR_ASSERTION_FAILED); }
+#define assertMsg(X, FMT, ...) if(!(X)) { fprintf(stderr, "Assertion failed: " RED(#X) "\n with message:\n " FMT, __VA_ARGS__); halc_raise(ERR_ASSERTION_FAILED); }
 
 extern errc gErrorCatch;
 extern b8 gErrorFirst;

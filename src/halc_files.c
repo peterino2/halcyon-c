@@ -27,7 +27,7 @@ errc load_file(hstr* out, const hstr* filePath)
     if(!file)
     {
         fprintf(stderr, "\n  Unable to open file: %s\n", filePath->buffer);
-        raise(ERR_UNABLE_TO_OPEN_FILE);
+        halc_raise(ERR_UNABLE_TO_OPEN_FILE);
     }
 
     // seek for the size of the file
@@ -66,19 +66,19 @@ errc load_file(hstr* out, const hstr* filePath)
     out->cap = (u32) fileSize;
 
     fclose(file);
-    end;
+    halc_end;
     
 exitCloseFile:
     fclose(file);
-    end;
+    halc_end;
 }
 
 errc load_and_decode_from_file(hstr* out, const hstr* filePath)
 {
     hstr file;
-    try(load_file(&file, filePath));
-    try(hstr_normalize(&file, out));
+    halc_try(load_file(&file, filePath));
+    halc_try(hstr_normalize(&file, out));
 
     hstr_free(&file);
-    end;
+    halc_end;
 }

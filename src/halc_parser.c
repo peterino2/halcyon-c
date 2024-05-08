@@ -45,7 +45,7 @@ static errc aindex_init(struct aindex_list* list, i32 initialCap)
 {
     if(list->cap != 0)
     {
-        raise(ERR_UNEXPECTED_REINITIALIZATION);
+        halc_raise(ERR_UNEXPECTED_REINITIALIZATION);
     }
 
     list->children = NULL;
@@ -57,7 +57,7 @@ static errc aindex_init(struct aindex_list* list, i32 initialCap)
     list->len = 0;
     list->cap = initialCap;
 
-    end;
+    halc_end;
 }
 
 static errc aindex_push(struct aindex_list* list, i32 newIndex)
@@ -70,7 +70,7 @@ static errc aindex_push(struct aindex_list* list, i32 newIndex)
     }
 
     list->children[list->len] = newIndex;
-    end;
+    halc_end;
 }
 
 static void aindex_free(struct aindex_list* list)
@@ -87,8 +87,8 @@ static void aindex_free(struct aindex_list* list)
 // kind of a lie, all this does is return the current end length of the anode
 static errc p_push_index_list_entry(struct s_parser* p, i32 newIndex)
 {
-    try(aindex_push(&p->list, newIndex));
-    end;
+    halc_try(aindex_push(&p->list, newIndex));
+    halc_end;
 }
 
 static i32 p_get_index_list_start(struct s_parser* p)
@@ -105,7 +105,7 @@ static errc p_create_index_list(struct s_parser* p, i32* stackStart, i32* stackE
 {
     // executive decision. I dont think we're going to create any kind of index list with 
     // a set of tokens longer than 1000, 
-    assert(stackEnd - stackStart < 1000);
+    halc_assert(stackEnd - stackStart < 1000);
 
     newList->entry = p_get_index_list_start(p);
     newList->count = 0;
@@ -116,7 +116,7 @@ static errc p_create_index_list(struct s_parser* p, i32* stackStart, i32* stackE
         p_push_index_list_entry(p, *stackStart);
         stackStart += 1;
     }
-    end;
+    halc_end;
 }
 
 const char* node_id_to_string(i32 id)
@@ -179,7 +179,7 @@ errc p_print_node(struct s_parser* p, struct anode* n, const char* pointerColor)
             printf("\n");
         }
     }
-    end;
+    halc_end;
 }
 
 static errc parser_new_node(struct s_parser* p, struct anode** newNode)
@@ -197,7 +197,7 @@ static errc parser_new_node(struct s_parser* p, struct anode** newNode)
     (*newNode)->typeTag = ANODE_INVALID;
     p->ast_len += 1;
 
-    end;
+    halc_end;
 }
 
 #define PARSER_INIT_NODESTACK_SIZE 0 // 64
@@ -230,7 +230,7 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
     p->stackCount = 0;
 
     struct anode* newNode;
-    try(parser_new_node(p, &newNode));
+    halc_try(parser_new_node(p, &newNode));
 
     // node 0's parent is itself, and is the core s_graph
     newNode->parent = 0;
@@ -240,9 +240,9 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
     
     p->tabCount = 0;
 
-    try(parser_push_stack(p, newNode));
+    halc_try(parser_push_stack(p, newNode));
 
-    end;
+    halc_end;
 }
 
 void parser_free(struct  s_parser* p)
@@ -319,7 +319,7 @@ static errc parser_push_stack(struct s_parser* p, struct anode* node)
 
     p->stack[p->stackCount] = node->index;
     p->stackCount += 1;
-    end;
+    halc_end;
 }
 
 // pops one value off the active stack in the parser and discards it
@@ -353,7 +353,7 @@ static errc match_reduce_space(struct s_parser* p, i32* stackStart, i32* stackEn
         pop_stack_discard(p);
         *didReduce = TRUE;
     }
-    end;
+    halc_end;
 }
 
 // speech is important but it needs to capture the optional comment at the end.
@@ -366,7 +366,7 @@ static errc match_forward_speech(struct s_parser* p, i32* stackStart, i32* stack
     if(stackLen)
     {
     }
-    end;
+    halc_end;
 }
 
 static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
@@ -377,7 +377,7 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
 
     if(stackLen < 4)
     {
-        end;
+        halc_end;
     }
 
     if(p_getTypeTag(p, stackStart[0]) != AT || 
@@ -385,13 +385,13 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
        p_getTypeTag(p, stackEnd[-1]) != NEWLINE
        )
     {
-        end;
+        halc_end;
     }
 
     // this case will get caught by the reduce case later on
     if (p_getTypeTag(p, stackStart[2]) == L_PAREN)
     {
-        end;
+        halc_end;
     }
 
     if (p_getTypeTag(p, stackStart[2]) != LABEL)
@@ -399,13 +399,13 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
         // todo implement error context here
         if(!gParserRunNoPrint)
             fprintf(stderr, RED("Expected a label after goto\n"));
-        end;
+        halc_end;
     }
 
     *matched = TRUE;
 
     struct anode* newNode;
-    try(parser_new_node(p, &newNode));
+    halc_try(parser_new_node(p, &newNode));
     newNode->typeTag = ANODE_GOTO;
     newNode->nodeData.directiveGoto.tabCount = p->tabCount;
 
@@ -417,7 +417,7 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
         delta = -2;
     }
 
-    try(
+    halc_try(
         p_create_index_list(p, stackStart + 2, stackEnd + delta, &(newNode->nodeData.directiveGoto.label))
     );
 
@@ -426,9 +426,9 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
         pop_stack_discard(p);
     }
 
-    try(parser_push_stack(p, newNode));
+    halc_try(parser_push_stack(p, newNode));
 
-    end;
+    halc_end;
 }
 
 // Test Cases for directive
@@ -448,7 +448,7 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
 
     if(stackLen < 4)
     {
-        end;
+        halc_end;
     }
 
     i32* s = stackStart;
@@ -461,7 +461,7 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
         p_getTypeTag(p, stackStart[2]) != L_PAREN || 
         p_getTypeTag(p, stackEnd[-1]) != NEWLINE)
     {
-        end;
+        halc_end;
     }
 
     // walk forward until we find the L_PAREN
@@ -476,7 +476,7 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
     // match incomplete, this could be a goto
     if(p_getTypeTag(p, *lParen) != L_PAREN)
     {
-        end;
+        halc_end;
     }
 
     while (rParen != lParen && p_getTypeTag(p, *rParen) != R_PAREN)
@@ -487,7 +487,7 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
     // match incomplete, we might not have finished reading the whole line yet
     if(p_getTypeTag(p, *rParen) != R_PAREN)
     {
-        end;
+        halc_end;
     }
 
     // create a token list between lparen and rParen
@@ -502,7 +502,7 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
     // ( ) 
     // 0 1 diff = 1;
     struct anode* newNode;
-    try(parser_new_node(p, &newNode));
+    halc_try(parser_new_node(p, &newNode));
     newNode->typeTag = ANODE_DIRECTIVE;
 
 
@@ -519,12 +519,12 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
         i32* nodeEnd = rParen - 1;
 
         indexListLen  = (i32)(rParen - nodeStart);
-        assert(indexListLen > 0); // note to self, UNKNOWN_ERRORs should get removed
+        halc_assert(indexListLen > 0); // note to self, UNKNOWN_ERRORs should get removed
         indexList = p_get_index_list_start(p);
 
         for (i32 i = 0; i < indexListLen; i += 1)
         {
-            try(p_push_index_list_entry(p, nodeStart[i]));
+            halc_try(p_push_index_list_entry(p, nodeStart[i]));
             p_assign_parent(p, nodeStart[i], newNode->index);
         }
     }
@@ -539,17 +539,17 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
         pop_stack_discard(p);
     }
 
-    try(parser_push_stack(p, newNode));
+    halc_try(parser_push_stack(p, newNode));
 
     *didReduce = TRUE;
 
-    end;
+    halc_end;
 }
 
 static errc match_reduce_speech(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce) 
 {
     *didReduce = FALSE;
-    end;
+    halc_end;
 }
 
 static errc match_reduce_tab(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
@@ -561,7 +561,7 @@ static errc match_reduce_tab(struct s_parser* p, i32* stackStart, i32* stackEnd,
         *didReduce = TRUE;
         p->tabCount += 1;
     }
-    end;
+    halc_end;
 }
 
 // misc. error matching, attempts to clean up the parser stack.
@@ -618,10 +618,10 @@ static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackE
         if(shouldEvict)
         {
             // directly writing to stderr or stdout should be fully redirectible... thats one for the todo.
-            // raise(ERR_UNABLE_TO_PARSE_LINE); // What to do here. 
+            // halc_raise(ERR_UNABLE_TO_PARSE_LINE); // What to do here. 
             // We can report the error, evict the current line and just continue parsing from there.
             // Because this is such a recoverable error, maybe 
-            // its better to not use raise() here.
+            // its better to not use halc_raise() here.
             
             i32 currentStackEnd = stackEnd[-1];
             while(p->ast[p->stack[p->stackCount-1]].typeTag <= COMMENT)
@@ -629,13 +629,13 @@ static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackE
                 pop_stack_discard(p);
             }
 
-            try(parser_push_stack(p, &p->ast[currentStackEnd]));
+            halc_try(parser_push_stack(p, &p->ast[currentStackEnd]));
 
             *didReduce = TRUE;
         }
 
     }
-    end;
+    halc_end;
 }
 
 
@@ -644,7 +644,7 @@ static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackE
 // what is an expression?
 static errc match_reduce_expression(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
-    end;
+    halc_end;
 }
 
 // attempts to create an ast node for segment label, if successful, pops the stack by the token size count 
@@ -665,7 +665,7 @@ static errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32*
     *didReduce = FALSE;
     if(len < 3)
     {
-        end;
+        halc_end;
     }
 
     // this clause can only match if there is a newline at the end of it and we see a label within the newline
@@ -690,7 +690,7 @@ static errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32*
     )
     {
         struct anode* label;
-        try(parser_new_node(p, &label));
+        halc_try(parser_new_node(p, &label));
 
         p->ast[stackStart[0]].parent = label->index;
         p->ast[stackStart[1]].parent = label->index;
@@ -710,7 +710,7 @@ static errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32*
                     ts_print_token(p->ts, p->ast[stackStart[3]].nodeData.token, FALSE, RED_S);
                 }
                 
-                raise(ERR_UNEXPECTED_TOKEN);
+                halc_raise(ERR_UNEXPECTED_TOKEN);
             }
             label->nodeData.label.comment = p->ast[stackStart[3]].nodeData.token;
         }
@@ -722,17 +722,17 @@ static errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32*
         for(i32 i = len; i > 0; i--)
             pop_stack_discard(p);
 
-        try(parser_push_stack(p, label));
+        halc_try(parser_push_stack(p, label));
         if(gParserRunVerbose)
             p_print_node(p, label, GREEN_S);
 
         p->tabCount = 0;
 
         *didReduce = TRUE;
-        end;
+        halc_end;
     }
 
-    end;
+    halc_end;
 }
 
 
@@ -775,9 +775,9 @@ static errc parser_reduce(struct s_parser* p)
     {
         b8 matched = FALSE;
         if(!matched)
-            try(match_forward_goto(p, tokenStackStart, stackEnd, &matched));
+            halc_try(match_forward_goto(p, tokenStackStart, stackEnd, &matched));
         if(!matched)
-            try(match_forward_directive(p, tokenStackStart, stackEnd, &matched));
+            halc_try(match_forward_directive(p, tokenStackStart, stackEnd, &matched));
     }
     
 
@@ -800,7 +800,7 @@ static errc parser_reduce(struct s_parser* p)
         }
     }
 
-    end;
+    halc_end;
 }
 
 static errc parser_advance(struct s_parser* p)
@@ -808,7 +808,7 @@ static errc parser_advance(struct s_parser* p)
     // - look at the next token and produce emit a new astNode, 
     
     struct anode* newNode;
-    try(parser_new_node(p, &newNode));
+    halc_try(parser_new_node(p, &newNode));
 
     if(gParserRunVerbose)
         printf("nodeIndex = %d\n", newNode->index);
@@ -824,7 +824,7 @@ static errc parser_advance(struct s_parser* p)
         ts_print_token(p->ts, newNode->nodeData.token, FALSE, GREEN_S);
     }
 
-    try(parser_push_stack(p, newNode));
+    halc_try(parser_push_stack(p, newNode));
 
     if(gParserRunVerbose)
     {
@@ -843,7 +843,7 @@ static errc parser_advance(struct s_parser* p)
     //      if we have anything other than just a single s_graph at the end.
     p->t++;
 
-    end;
+    halc_end;
 }
 
 
@@ -855,20 +855,21 @@ void graph_free(struct s_graph* graph)
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 {
     struct s_parser p;
-    try(parser_init(&p, ts));
+    halc_try(parser_init(&p, ts));
 
     while (p.t < p.tend)
     {
-        tryCleanup(parser_advance(&p));
+        halc_tryCleanup(parser_advance(&p));
     }
 
-    printf("parser nodes constructed = %d\n", p.ast_len);
+    if(!gParserRunNoPrint)
+        printf("parser nodes constructed = %d\n", p.ast_len);
 
     // graph construction should happen at this point
 cleanup:
     parser_free(&p);
 
-    end;
+    halc_end;
 }
 
 

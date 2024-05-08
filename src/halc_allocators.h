@@ -40,7 +40,7 @@ errc setup_default_custom_allocator(void* (*malloc_fn) (size_t), void (*free_fn)
 
 
 // Will go to cleanup if alloc fails for any reason.
-#define halloc(ptr, size) try(halloc_advanced((void**) ptr, size, __FILE__, __LINE__, __func__))
+#define halloc(ptr, size) halc_try(halloc_advanced((void**) ptr, size, __FILE__, __LINE__, __func__))
 
 #define halloc_cleanup(ptr, size) try_cleanup(halloc_advanced((void**) ptr, size))
 
@@ -52,7 +52,7 @@ errc setup_default_custom_allocator(void* (*malloc_fn) (size_t), void (*free_fn)
 // size of old allocation is needed for potential perf optimizations and  debugging
 //
 // modifies existing pointer, on failure no reallocation happens
-#define hrealloc(ptr, size, newSize, allowShrink) try(hrealloc_advanced((void**)ptr, size, newSize, allowShrink, __FILE__, __LINE__, __func__))
+#define hrealloc(ptr, size, newSize, allowShrink) halc_try(hrealloc_advanced((void**)ptr, size, newSize, allowShrink, __FILE__, __LINE__, __func__))
 
 // backing code for halloc
 errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, const char* func);

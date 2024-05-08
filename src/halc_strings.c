@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#define HSTR_VALIDATE_NOT_STATIC(X) do{if(X->cap == -1) raise(ERR_STR_OPERATION_ON_STATIC_HSTR);\
+#define HSTR_VALIDATE_NOT_STATIC(X) do{if(X->cap == -1) halc_raise(ERR_STR_OPERATION_ON_STATIC_HSTR);\
     } while(0)
 
 #define HSTR_VALIDATE_NOT_STATIC_VOID(X) do{if(X->cap == -1) return;\
@@ -66,7 +66,7 @@ errc hstr_reserve(hstr* str, u32 len)
 
     if (str->cap >= (i32)len)
     {
-        end; // nothing to do, we're already the correct size
+        halc_end; // nothing to do, we're already the correct size
     }
 
     if(str->cap > 0)
@@ -80,7 +80,7 @@ errc hstr_reserve(hstr* str, u32 len)
 
     str->cap = len;
 
-    end;
+    halc_end;
 }
 
 errc hstr_normalize(const hstr* istr, hstr* ostr)
@@ -111,7 +111,7 @@ errc hstr_normalize(const hstr* istr, hstr* ostr)
                 {
                     *w = 0; // write out a null so we can debug print it
                     fprintf(stderr, RED("attempted to normalize file with inconsistent file format content normalized so far:") " %s\n", ostr->buffer);
-                    raise(ERR_INCONSISTENT_FILE_FORMAT);
+                    halc_raise(ERR_INCONSISTENT_FILE_FORMAT);
                 }
 
                 while(spaceCount > 0)
@@ -159,7 +159,7 @@ errc hstr_normalize(const hstr* istr, hstr* ostr)
 
     ostr->len = (u32)(w - ostr->buffer);
 
-    end;
+    halc_end;
 }
 
 errc hstr_printf(hstr* str, const char* fmt, ...)
@@ -181,7 +181,7 @@ errc hstr_printf(hstr* str, const char* fmt, ...)
     str->len += charsToWrite;
     va_end (args);
 
-    end;
+    halc_end;
 }
 
 void hstr_init(hstr* str)
@@ -196,10 +196,10 @@ errc test_hstr_printf()
 {
     hstr str;
     hstr_init(&str);
-    try(hstr_printf(&str, "lol this is a printf %d", 32));
-    try(hstr_printf(&str, ". lol this is another one %s", "wu tang forever"));
+    halc_try(hstr_printf(&str, "lol this is a printf %d", 32));
+    halc_try(hstr_printf(&str, ". lol this is another one %s", "wu tang forever"));
 
     hstr_free(&str);
-    end;
+    halc_end;
 }
 #endif

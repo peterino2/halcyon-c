@@ -51,7 +51,7 @@ errc untrack_allocs(struct allocatorStats* outTrackedAllocationStats)
                 gAllocatorStats.allocations,
                 gAllocatorStats.peakAllocatedSize);
 
-        raiseCleanup(ERR_TEST_LEAKED_MEMORY);
+        halc_raiseCleanup(ERR_TEST_LEAKED_MEMORY);
     }
 
 
@@ -62,7 +62,7 @@ cleanup:
     gTrackAllocations = FALSE;
 #endif
 
-    end;
+    halc_end;
 }
 
 errc setup_default_allocator() 
@@ -73,13 +73,13 @@ errc setup_default_allocator()
     gTrackAllocations = FALSE;
     gAllowTrackAllocations = FALSE;
 
-    end;
+    halc_end;
 }
 
 errc enable_allocation_tracking()
 {
     gAllowTrackAllocations = TRUE;
-    end;
+    halc_end;
 }
 
 errc setup_default_custom_allocator(
@@ -91,19 +91,19 @@ errc setup_default_custom_allocator(
     gTrackAllocations = FALSE;
     gAllowTrackAllocations = FALSE;
 
-    end;
+    halc_end;
 }
 
 errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, const char* func)
 {
     if (size == 0)
     {
-        raise(ERR_OUT_OF_MEMORY);
+        halc_raise(ERR_OUT_OF_MEMORY);
     }
     *ptr = gDefaultAllocator.malloc_fn(size);
     if(!*ptr)
     {
-        raiseCleanup(ERR_OUT_OF_MEMORY);
+        halc_raiseCleanup(ERR_OUT_OF_MEMORY);
     }
 
 #if TRACK_ALLOCATIONS
@@ -126,7 +126,7 @@ errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, 
     }
 
 cleanup:
-    end;
+    halc_end;
 }
 
 // ======================= hash allocator =================
@@ -154,30 +154,30 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
 {
     if (newSize == size && newSize == 0)
     {
-        raise(ERR_BAD_REALLOC_PARAMETERS);
+        halc_raise(ERR_BAD_REALLOC_PARAMETERS);
     }
 
     if(newSize == size)
     {
-        end;
+        halc_end;
     }
 
     if(!allowShrink && (newSize < size))
     {
-        raise(ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED);
+        halc_raise(ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED);
     }
 
     if (size == 0)
     {
         halloc_advanced(ptr, newSize, file, lineNumber, func);
-        end;
+        halc_end;
     }
 
     // allocate new memory
     void* new = gDefaultAllocator.malloc_fn(newSize);
     if(!new)
     {
-        raise(ERR_OUT_OF_MEMORY);
+        halc_raise(ERR_OUT_OF_MEMORY);
     }
     // copy from old to new
     memcpy(new, *ptr, MEM_MIN(size, newSize));
@@ -189,5 +189,5 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
     gAllocatorStats.allocatedSize -= size;
     gAllocatorStats.allocatedSize += newSize;
 
-    end;
+    halc_end;
 }
