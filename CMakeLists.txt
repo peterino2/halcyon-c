@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 project(halcyon)
 
 add_executable( halcyon_test
-    src/halcyon_test.c
+    src/halcyon_test.cpp
     src/halc_allocators.c
     src/halc_errors.c
     src/halc_strings.c
@@ -14,7 +14,7 @@ add_executable( halcyon_test
 
 set_property(TARGET halcyon_test PROPERTY C_STANDARD 99)
 
-add_compile_options(-Wall -Werror)
+add_compile_options(-Wall)# -Werror)
 add_compile_options(-fsanitize=address)
 add_compile_options(-g)
 add_link_options(-fsanitize=address)

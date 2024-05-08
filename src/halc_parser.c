@@ -6,11 +6,22 @@
 #include <inttypes.h>
 
 static b8 gParserRunVerbose;
+static b8 gParserRunNoPrint;
 
 struct anode_list_ref {
     i32* start;
     i32* listEnd;
 };
+
+void halc_set_parser_noprint() 
+{
+    gParserRunNoPrint = TRUE;
+}
+
+void halc_clear_parser_noprint() 
+{
+    gParserRunNoPrint = FALSE;
+}
 
 void halc_set_parser_run_verbose() 
 {
@@ -175,8 +186,8 @@ static errc parser_new_node(struct s_parser* p, struct anode** newNode)
 {
     if(p->ast_len == p->ast_cap)
     {
-        u32 newSize = p->ast_cap * sizeof(struct anode) * 2;
-        hrealloc(&p->ast, p->ast_cap * sizeof(struct anode), newSize, FALSE);
+        u32 newSize = HALC_MAX(p->ast_cap * 2, 16);
+        hrealloc(&p->ast, p->ast_cap * sizeof(struct anode), newSize * sizeof(struct anode), FALSE);
         p->ast_cap = newSize;
     }
 
@@ -189,15 +200,16 @@ static errc parser_new_node(struct s_parser* p, struct anode** newNode)
     end;
 }
 
-#define PARSER_INIT_NODESTACK_SIZE 64
-#define PARSER_INIT_NODECOUNT 256
+#define PARSER_INIT_NODESTACK_SIZE 0 // 64
+#define PARSER_INIT_NODECOUNT 0 // 256
 
 static errc parser_push_stack(struct s_parser* p, struct anode* node); // forward decl for parser_init
 
 errc parser_init(struct s_parser* p, const struct tokenStream* ts)
 {
     p->ast_cap = PARSER_INIT_NODECOUNT;
-    halloc(&p->ast, p->ast_cap * sizeof(struct anode));
+    if(p->ast_cap)
+        halloc(&p->ast, p->ast_cap * sizeof(struct anode));
     p->ast_len = 0;
 
     p->ast_view_len = 0;
@@ -212,8 +224,9 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
     p->t = ts->tokens;
     p->tend = ts->tokens + ts->len;
 
-    halloc(&p->stack, PARSER_INIT_NODESTACK_SIZE * sizeof(i32));
     p->stackCap = PARSER_INIT_NODESTACK_SIZE;
+    if(p->stackCap)
+        halloc(&p->stack, PARSER_INIT_NODESTACK_SIZE * sizeof(i32));
     p->stackCount = 0;
 
     struct anode* newNode;
@@ -295,11 +308,13 @@ $: Does that make sense?
 
 static errc parser_push_stack(struct s_parser* p, struct anode* node)
 {
-    if(p->stackCount == p->stackCap)
+    if(p->stackCount + 1 >= p->stackCap)
     {
-        const i32 newCap = p->stackCap * 2 * sizeof(i32);
-        hrealloc(&p->stack, p->stackCap * sizeof(i32), newCap, FALSE);
+        const i32 oldCap = p->stackCap;
+        const i32 newCap = HALC_MAX(oldCap * 2, 16);
         p->stackCap = newCap;
+
+        hrealloc(&p->stack, oldCap * sizeof(i32), newCap * sizeof(i32), FALSE);
     }
 
     p->stack[p->stackCount] = node->index;
@@ -382,7 +397,8 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
     if (p_getTypeTag(p, stackStart[2]) != LABEL)
     {
         // todo implement error context here
-        fprintf(stderr, RED("Expected a label after  goto"));
+        if(!gParserRunNoPrint)
+            fprintf(stderr, RED("Expected a label after goto\n"));
         end;
     }
 
@@ -405,13 +421,12 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
         p_create_index_list(p, stackStart + 2, stackEnd + delta, &(newNode->nodeData.directiveGoto.label))
     );
 
-    printf("number of tokens in label:%d \n", newNode->nodeData.directiveGoto.label.count);
     for (i32 i = 0; i < stackLen; i += 1)
     {
         pop_stack_discard(p);
     }
 
-    parser_push_stack(p, newNode);
+    try(parser_push_stack(p, newNode));
 
     end;
 }
@@ -524,7 +539,7 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
         pop_stack_discard(p);
     }
 
-    parser_push_stack(p, newNode);
+    try(parser_push_stack(p, newNode));
 
     *didReduce = TRUE;
 
@@ -569,8 +584,8 @@ static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackE
             i32* terminalStart = stackStart;
             if(p->ast[stackStart[0]].typeTag == L_SQBRACK && p->ast[stackStart[1]].typeTag != LABEL)
             {
-
-                fprintf(stderr, RED("Unexpected token %s after "), node_id_to_string(p->ast[stackStart[1]].typeTag));
+                if(!gParserRunNoPrint)
+                    fprintf(stderr, RED("Unexpected token %s after "), node_id_to_string(p->ast[stackStart[1]].typeTag));
                 ts_print_token(p->ts, p->ast[stackStart[1]].nodeData.token, FALSE, RED_S);
                 shouldEvict = TRUE;
             }
@@ -588,8 +603,11 @@ static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackE
                 }
                 else if(newLineCount >= 1)
                 {
-                    p_print_node(p, &p->ast[stackStart[i - 1]], GREEN_S);
-                    fprintf(stderr, RED("Unable to parse line reached end of line, evicting previous tokens\n")); // another stray thought. logging should really be something that we give hooks for the end user code to call into.
+                    if(!gParserRunNoPrint)
+                    {
+                        p_print_node(p, &p->ast[stackStart[i - 1]], GREEN_S);
+                        fprintf(stderr, RED("Unable to parse line after reaching end of line, evicting previous tokens\n")); // another stray thought. logging should really be something that we give hooks for the end user code to call into.
+                    }
                     shouldEvict = TRUE;
                     break;
                 }
@@ -611,7 +629,7 @@ static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackE
                 pop_stack_discard(p);
             }
 
-            parser_push_stack(p, &p->ast[currentStackEnd]);
+            try(parser_push_stack(p, &p->ast[currentStackEnd]));
 
             *didReduce = TRUE;
         }
@@ -704,7 +722,7 @@ static errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32*
         for(i32 i = len; i > 0; i--)
             pop_stack_discard(p);
 
-        parser_push_stack(p, label);
+        try(parser_push_stack(p, label));
         if(gParserRunVerbose)
             p_print_node(p, label, GREEN_S);
 

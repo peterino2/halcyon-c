@@ -4,6 +4,8 @@
 #include "halc_types.h"
 #include "halc_errors.h"
 
+EXTERN_C_BEGIN
+
 struct hstr{
     char* buffer;
     u32 len;
@@ -72,5 +74,14 @@ enum Color {
     cPurple,
     cCyan
 };
+
+#define HALC_MIN(_A, _B) _A < _B ? _A : _B
+#define HALC_MAX(_A, _B) _A > _B ? _A : _B
+
+#ifndef NO_TESTS
+errc test_hstr_printf();
+#endif
+
+EXTERN_C_END
 
 #endif

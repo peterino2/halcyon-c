@@ -5,6 +5,7 @@
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
 
+EXTERN_C_BEGIN
 
 struct anode;
 struct s_parser;
@@ -173,5 +174,7 @@ struct s_parser
 
     i32 tabCount;
 };
+
+EXTERN_C_END
 
 #endif

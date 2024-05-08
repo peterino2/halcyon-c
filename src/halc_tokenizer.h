@@ -4,6 +4,8 @@
 #include "halc_types.h"
 #include "halc_strings.h"
 
+EXTERN_C_BEGIN
+
 enum tokenType{
     NOT_EQUIV,
     EQUIV,
@@ -101,5 +103,7 @@ errc tok_get_sourceline(const struct token* tok, const hstr* source, hstr* out, 
 const char* ts_get_token_as_buffer(const struct tokenStream* ts, const i32 index);
 
 const struct token* ts_get_tok(const struct tokenStream* ts, i32 index);
+
+EXTERN_C_END
 
 #endif

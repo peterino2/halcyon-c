@@ -13,8 +13,11 @@
 
 #ifndef NO_TESTS
 
-extern void halc_set_parser_run_verbose();
-extern void halc_clear_parser_run_verbose();
+extern "C" void halc_set_parser_noprint();
+extern "C" void halc_clear_parser_noprint();
+
+extern "C" void halc_set_parser_run_verbose();
+extern "C" void halc_clear_parser_run_verbose();
 
 // utilities tests
 static errc loading_file_test() 
@@ -150,16 +153,15 @@ static errc tokenizer_full()
 
 
     try(test_ts_matches_expected_stream(&ts, tokens, arrayCount(tokens)));
+    const hstr label1 = HSTR("hello");
+    const hstr label2 = HSTR("question");
+    const hstr comment1 = HSTR("#first comment");
+    const hstr storyText = HSTR("I'm going to ask you a question.");
 
     assertCleanup(arrayCount(tokens) == ts.len);
-
-    const hstr label1 = HSTR("hello");
     assertCleanup(hstr_match(&label1, &ts.tokens[1].tokenView));
-    const hstr label2 = HSTR("question");
     assertCleanup(hstr_match(&label2, &ts.tokens[10].tokenView));
-    const hstr comment1 = HSTR("#first comment");
     assertCleanup(hstr_match(&comment1, &ts.tokens[7].tokenView));
-    const hstr storyText = HSTR("I'm going to ask you a question.");
     assertCleanup(hstr_match(&storyText, &ts.tokens[15].tokenView));
 
     assertCleanup(ts.tokens[0].lineNumber == 1);
@@ -288,6 +290,8 @@ static errc test_parser_directives()
         "@directive([with some oddities])\n"
         "@directive([with some oddities] h jdhskah 2y811 !)\n"
         "@directive()\n" // one label only
+        "\n"
+        "\n"
         "@goto\n" // special goto directive
         "@goto .\n" // special goto directive
         "@goto region.characters.something\n" // special goto directive
@@ -297,15 +301,21 @@ static errc test_parser_directives()
     end;
 }
 
-#include <time.h>
+#include <chrono>
+#include <iostream>
 
 static errc test_parser_speed()
 {
+    using namespace std::chrono;
+    // halc_set_parser_run_verbose();
+    halc_set_parser_noprint();
     const hstr filename = HSTR("testfiles/stress_easy.halc");
 
     hstr fileContents;
     try(load_and_decode_from_file(&fileContents, &filename));
-    
+
+    i32 i = 1000;
+    high_resolution_clock::time_point t1 = high_resolution_clock::now();
     do {
         struct tokenStream ts;
         struct s_graph graph;
@@ -315,7 +325,12 @@ static errc test_parser_speed()
 
         ts_free(&ts);
         graph_free(&graph);
-    } while(0);
+    } while(i-- > 0);
+    high_resolution_clock::time_point t2 = high_resolution_clock::now();
+
+    duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+
+    std::cout << "Time elapsed for test 1000 ast generations" << time_span.count() << "seconds" << std::endl;
 
     hstr_free(&fileContents);
     end;
@@ -373,8 +388,6 @@ static struct testEntry gTests[] = {
     TEST_IMPL(test_parser_labels, "parsing tokens into a graph, specifically with error cases for labels"),
     TEST_IMPL(test_parser_directives, "parsing tokens into a graph, specificially testing cases for directives"),
     TEST_IMPL(test_parser_speed, "parses tokens into a graph, specifically measuring speed")
-
-
 };
 
 static i32 runAllTests()
@@ -389,6 +402,7 @@ static i32 runAllTests()
         track_allocs(gTests[i].testName);
         errc errorCode = gTests[i].testFunc();
         halc_clear_parser_run_verbose();
+        halc_clear_parser_noprint();
 
         struct allocatorStats stats;
         errc errorCodeFromUntrack = untrack_allocs(&stats);

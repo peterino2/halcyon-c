@@ -96,6 +96,10 @@ errc setup_default_custom_allocator(
 
 errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, const char* func)
 {
+    if (size == 0)
+    {
+        raise(ERR_OUT_OF_MEMORY);
+    }
     *ptr = gDefaultAllocator.malloc_fn(size);
     if(!*ptr)
     {
@@ -148,6 +152,11 @@ void print_memory_statistics()
 
 errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,const char* file, i32 lineNumber, const char* func)
 {
+    if (newSize == size && newSize == 0)
+    {
+        raise(ERR_BAD_REALLOC_PARAMETERS);
+    }
+
     if(newSize == size)
     {
         end;

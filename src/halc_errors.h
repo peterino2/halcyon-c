@@ -152,6 +152,7 @@ typedef int errc;
 #define ERR_OUT_OF_MEMORY 100
 #define ERR_DOUBLE_FREE 200
 #define ERR_REALLOC_SHRUNK_WHEN_NOT_ALLOWED 300
+#define ERR_BAD_REALLOC_PARAMETERS 400
 
 // string errors
 #define ERR_STR_BAD_RESIZE 1000
@@ -161,6 +162,7 @@ typedef int errc;
 #define ERR_UNABLE_TO_OPEN_FILE 2000
 #define ERR_FILE_SEEK_ERROR 2100
 #define ERR_INCONSISTENT_FILE_FORMAT 2200
+
 
 // assertions
 #define ERR_ASSERTION_FAILED 3100
@@ -183,7 +185,7 @@ const char* errc_to_string(errc code);
 void error_print(errc code, const char* C, const char* F, int L);
 
 // ==================== Errors Library ==================
-#define try(X) if((gErrorCatch = X)) {\
+#define tryx(X) if((gErrorCatch = X)) {\
     error_print(gErrorCatch, #X, __FILE__, __LINE__);\
     return gErrorCatch;\
 }

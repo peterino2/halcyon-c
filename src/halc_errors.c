@@ -18,6 +18,8 @@ const char* errc_to_string(errc code)
             return "Attempted out of Memory access";
         case ERR_DOUBLE_FREE:
             return "Attempted to free memory that was already freed";
+        case ERR_BAD_REALLOC_PARAMETERS:
+            return "Realloc failed with really bad arguments";
 
         // string errors
         case ERR_STR_BAD_RESIZE:
