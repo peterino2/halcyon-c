@@ -341,8 +341,16 @@ static errc match_reduce_space(struct s_parser* p, i32* stackStart, i32* stackEn
     end;
 }
 
+// speech is important but it needs to capture the optional comment at the end.
 static errc match_forward_speech(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
 {
+    *matched = FALSE;
+
+    i32 stackLen = (i32) (stackEnd - stackStart);
+
+    if(stackLen)
+    {
+    }
     end;
 }
 
@@ -383,6 +391,7 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
     struct anode* newNode;
     try(parser_new_node(p, &newNode));
     newNode->typeTag = ANODE_GOTO;
+    newNode->nodeData.directiveGoto.tabCount = p->tabCount;
 
     i32 delta = -1;
     // -1 must be newline
@@ -819,6 +828,12 @@ static errc parser_advance(struct s_parser* p)
     end;
 }
 
+
+void graph_free(struct s_graph* graph)
+{
+    // no-op for now
+}
+
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
 {
     struct s_parser p;
@@ -837,4 +852,5 @@ cleanup:
 
     end;
 }
+
 

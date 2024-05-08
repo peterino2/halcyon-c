@@ -15,11 +15,14 @@ struct s_node
     i32 index;
 };
 
+// this should be part of the public API
 struct s_graph {
     struct s_node* nodes;
     i32 capacity;
     i32 len;
 };
+
+void graph_free(struct s_graph* graph);
 
 // append-only bump allocator list of children
 //
@@ -120,6 +123,7 @@ struct anode_expression {
 
 struct anode_goto {
     struct anode_list_alloc label;
+    i32 tabCount;
 };
 
 // ast node

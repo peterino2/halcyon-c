@@ -241,25 +241,26 @@ static errc parse_test_with_string(hstr* testString)
     try(hstr_normalize(testString, &normalizedTestString));
 
     struct tokenStream ts;
+    struct s_graph graph;
 
     try(tokenize(&ts, &normalizedTestString, &filename));
-
-    struct s_graph graph;
     try(parse_tokens(&graph, &ts));
 
     ts_free(&ts);
     hstr_free(&normalizedTestString);
-    // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));
+    graph_free(&graph);
+    // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));,
     end;
 }
-        // "@directive([with some oddities])\n"
-        // "$:this is a sample dialogue\n" );
-        // "homer: give me another dialogue \n"
-        // "    > give him a real dialogue\n"
-        // "        homer: thanks for the new dialogue\n"
-        // "    > nah, don't do that #[123456] why would you pick this\n"
-        // "        homer: you are the worst\n"
-        // "$:end of dialogue\n" );
+
+// "@directive([with some oddities])\n"
+// "$:this is a sample dialogue\n" );
+// "homer: give me another dialogue \n"
+// "    > give him a real dialogue\n"
+// "        homer: thanks for the new dialogue\n"
+// "    > nah, don't do that #[123456] why would you pick this\n"
+// "        homer: you are the worst\n"
+// "$:end of dialogue\n" );
 
 // tests first phase of parsing, converting a tokenstream into a graph of nodes
 static errc test_parser_labels()
@@ -281,7 +282,7 @@ static errc test_parser_labels()
 
 static errc test_parser_directives() 
 {
-    halc_set_parser_run_verbose();
+    // halc_set_parser_run_verbose();
     hstr testString = HSTR(
         "[label]\n"
         "@directive([with some oddities])\n"
@@ -291,6 +292,46 @@ static errc test_parser_directives()
         "@goto .\n" // special goto directive
         "@goto region.characters.something\n" // special goto directive
         "$:this is a sample dialogue\n" );
+
+    try(parse_test_with_string(&testString));   
+    end;
+}
+
+#include <time.h>
+
+static errc test_parser_speed()
+{
+    const hstr filename = HSTR("testfiles/stress_easy.halc");
+
+    hstr fileContents;
+    try(load_and_decode_from_file(&fileContents, &filename));
+    
+    do {
+        struct tokenStream ts;
+        struct s_graph graph;
+
+        try(tokenize(&ts, &fileContents, &filename));
+        try(parse_tokens(&graph, &ts));
+
+        ts_free(&ts);
+        graph_free(&graph);
+    } while(0);
+
+    hstr_free(&fileContents);
+    end;
+}
+
+static errc test_parser_speech()
+{
+    // halc_set_parser_run_verbose();
+    hstr testString = HSTR(
+        "[label]\n"
+        "@directive([with some oddities])\n"
+        "$:this is a sample dialogue\n" 
+        "personA: this is another dialogue\n" 
+        "PersonB: dialogue2 #[deadbeef] this is a comment with a Lockey\n" 
+        "$:this is a sample dialogue # this is just a comment, lockey can be generated\n" 
+        );
 
     try(parse_test_with_string(&testString));   
     end;
@@ -330,7 +371,10 @@ static struct testEntry gTests[] = {
     TEST_IMPL(token_printouts, "debugging token printouts"),
     TEST_IMPL(test_hstr_printf, "testing printf stuff in hstr"),
     TEST_IMPL(test_parser_labels, "parsing tokens into a graph, specifically with error cases for labels"),
-    TEST_IMPL(test_parser_directives, "parsing tokens into a graph, specificially testing cases for directives")
+    TEST_IMPL(test_parser_directives, "parsing tokens into a graph, specificially testing cases for directives"),
+    TEST_IMPL(test_parser_speed, "parses tokens into a graph, specifically measuring speed")
+
+
 };
 
 static i32 runAllTests()

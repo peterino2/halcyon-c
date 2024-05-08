@@ -88,7 +88,7 @@ errc hstr_normalize(const hstr* istr, hstr* ostr)
     // Allocate working buffer, it's garunteed to be smaller the input buffer.
     halloc(&ostr->buffer, istr->len + 1); // FIXME_GOOD
     ostr->len = 0;
-    ostr->cap = istr->len;
+    ostr->cap = istr->len + 1;
 
     char* w = ostr->buffer;
     usize wLen = ostr->len;
