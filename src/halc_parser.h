@@ -5,6 +5,9 @@
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
 
+
+struct anode;
+
 struct s_node
 {
     struct tokenStream* ts;
