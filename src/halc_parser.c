@@ -33,6 +33,12 @@ void halc_clear_parser_run_verbose()
     gParserRunVerbose = FALSE;
 }
 
+static i32 p_getTokenFromNode(struct s_parser* p, i32 node)
+{
+    return p->ast[node].nodeData.token;
+}
+
+
 static void print_error_at_node(struct s_parser* p, i32 node, const char* errorText)
 {
     fprintf(stderr, "\n");
@@ -56,6 +62,15 @@ static errc aindex_init(struct aindex_list* list, i32 initialCap)
 
     list->len = 0;
     list->cap = initialCap;
+
+    halc_end;
+}
+
+static errc p_getTokenLabelText(struct s_parser* p, i32 node, hstr *gotoString)
+{
+    // assert(p_getTypeTag(p, node) == LABEL);
+
+    *gotoString = p->ts->tokens[p->ast[node].nodeData.token].tokenView;
 
     halc_end;
 }
@@ -200,8 +215,8 @@ static errc parser_new_node(struct s_parser* p, struct anode** newNode)
     halc_end;
 }
 
-#define PARSER_INIT_NODESTACK_SIZE 0 // 64
-#define PARSER_INIT_NODECOUNT 0 // 256
+#define PARSER_INIT_NODESTACK_SIZE 64
+#define PARSER_INIT_NODECOUNT 256
 
 static errc parser_push_stack(struct s_parser* p, struct anode* node); // forward decl for parser_init
 
@@ -328,6 +343,14 @@ static void pop_stack_discard(struct s_parser* p)
     p->stackCount -= 1;
 }
 
+static void pop_stack_discard_multi(struct s_parser* p, i32 count)
+{
+    while (count --> 0)
+    {
+        pop_stack_discard(p);
+    }
+}
+
 // ---- helper functions ----
 static b8 isTagTerminal(i32 tag)
 {
@@ -344,6 +367,20 @@ static i32 p_getTypeTag(struct s_parser* p, i32 node)
     return p->ast[node].typeTag;
 }
 
+static errc match_forward_newline(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce) 
+{
+    i32 stackLen = (i32) (stackEnd - stackStart);
+
+    if((stackLen == 1 && p_getTypeTag(p, stackStart[0]) == NEWLINE) || 
+        (stackLen == 2 && p_getTypeTag(p, stackStart[0]) == COMMENT && p_getTypeTag(p, stackStart[1]) == NEWLINE)
+    )
+    {
+        pop_stack_discard_multi(p, stackLen);
+    }
+
+    halc_end;
+}
+
 // -- match reduce functions --
 static errc match_reduce_space(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
@@ -356,16 +393,171 @@ static errc match_reduce_space(struct s_parser* p, i32* stackStart, i32* stackEn
     halc_end;
 }
 
+
+// minimum set:
+//  > TEXT \n
+//  1 2    3
+static errc match_forward_selection(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
+{
+    *matched = FALSE;
+
+    i32 stackLen = (i32) (stackEnd - stackStart);
+
+    if(stackLen < 3 || stackLen > 4 ||
+        p_getTypeTag(p, stackEnd[-1]) != NEWLINE ||
+        p_getTypeTag(p, stackStart[1]) != STORY_TEXT ||
+        p_getTypeTag(p, stackStart[0]) != R_ANGLE
+    )
+    {
+        halc_end;
+    }
+
+    struct anode* newNode;
+
+    halc_try(parser_new_node(p, &newNode));
+
+    newNode->typeTag = ANODE_SELECTION;
+    newNode->nodeData.selection.tabCount = p->tabCount;
+    newNode->nodeData.selection.comment = -1;
+    newNode->nodeData.selection.extensionCount = 0;
+    newNode->nodeData.selection.storyText = stackStart[1];
+
+    if(p_getTypeTag(p, stackEnd[-2]) == COMMENT)
+    {
+        newNode->nodeData.selection.comment = stackEnd[-2];
+    }
+
+    for (i32 i = 0; i < stackLen; i += 1)
+    {
+        pop_stack_discard(p);
+    }
+    halc_try(parser_push_stack(p, newNode));
+
+
+    halc_end;
+}
+
+// minimum:
+// : lmfao 2 nova \n
+// 1 2            3
+static errc match_forward_extension(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
+{
+    *matched = FALSE;
+
+    i32 stackLen = (i32) (stackEnd - stackStart);
+
+    if(stackLen < 3 || 
+        stackLen > 4 ||
+        p_getTypeTag(p, stackEnd[-1]) != NEWLINE || 
+        p_getTypeTag(p, stackStart[0]) != COLON ||
+        p_getTypeTag(p, stackStart[1]) != STORY_TEXT)
+    {
+        halc_end;
+    }
+
+
+    struct anode* newNode;
+    halc_try(parser_new_node(p, &newNode));
+
+    newNode->typeTag = ANODE_EXTENSION;
+    newNode->nodeData.extension.extension = p_getTokenFromNode(p, stackStart[1]);
+    newNode->nodeData.extension.tabCount = p->tabCount;
+
+    for(i32 i = 0; i < stackLen; i += 1)
+    {
+        pop_stack_discard(p);    
+    }
+
+    halc_try(parser_push_stack(p, newNode));
+
+    *matched = TRUE;
+    
+    halc_end;
+}
+
 // speech is important but it needs to capture the optional comment at the end.
+//
+// $ : lmfao 2 nova \n
+// 1 2 3            4  
+// $ : lmfao 2 nova #[]comment \n
+// 1 2 3            4           5
 static errc match_forward_speech(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
 {
     *matched = FALSE;
 
     i32 stackLen = (i32) (stackEnd - stackStart);
 
-    if(stackLen)
+    if(stackLen < 4 || p_getTypeTag(p, stackEnd[-1]) != NEWLINE)
     {
+        halc_end;
     }
+
+    if(p_getTypeTag(p, stackStart[0]) != SPEAKERSIGN && p_getTypeTag(p, stackStart[0]) != LABEL)
+    {
+        halc_end;
+    }
+
+    if(p_getTypeTag(p, stackStart[1]) != COLON)
+    {
+        halc_end;
+    }
+
+    struct anode* newNode;
+
+    halc_try(parser_new_node(p, &newNode));
+    newNode->typeTag = ANODE_SPEECH;
+    newNode->nodeData.speech.speaker = stackStart[0];
+    newNode->nodeData.speech.storyText = stackStart[2];
+    newNode->nodeData.speech.comment = -1;
+    newNode->nodeData.speech.tabCount = p->tabCount;
+    newNode->nodeData.speech.extensionCount = 0; // to be filled out later during graph linking step.
+
+    for(i32 i = 0; i < stackLen; i += 1)
+    {
+        pop_stack_discard(p);
+    }
+
+    halc_try(parser_push_stack(p, newNode));
+    *matched = TRUE;
+
+    halc_end;
+}
+
+static errc match_forward_end(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
+{
+    *matched = FALSE;
+    i32 stackLen = (i32) (stackEnd - stackStart);
+
+    if(stackLen < 3 || stackLen > 4)
+    {
+        halc_end;
+    }
+    
+    if(p_getTypeTag(p, stackStart[0]) != AT || 
+       p_getTypeTag(p, stackStart[1]) != LABEL ||
+       p_getTypeTag(p, stackEnd[-1]) != NEWLINE)
+    {
+        halc_end;
+    }
+
+    hstr directiveString;
+    const hstr compare = HSTR("end");
+    halc_try(p_getTokenLabelText(p, stackStart[1], &directiveString));
+
+    if (!hstr_match(&directiveString, &compare))
+    {
+        halc_end;
+    }
+
+    struct anode* newNode;
+    halc_try(parser_new_node(p, &newNode));
+
+    newNode->typeTag = ANODE_END;
+    newNode->nodeData.token = p_getTokenFromNode(p, stackStart[1]);
+
+    pop_stack_discard_multi(p, stackLen);
+    parser_push_stack(p, newNode);
+
     halc_end;
 }
 
@@ -390,6 +582,15 @@ static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEn
 
     // this case will get caught by the reduce case later on
     if (p_getTypeTag(p, stackStart[2]) == L_PAREN)
+    {
+        halc_end;
+    }
+
+    hstr directiveString;
+    const hstr compare = HSTR("goto");
+    halc_try(p_getTokenLabelText(p, stackStart[1], &directiveString));
+
+    if (!hstr_match(&directiveString, &compare))
     {
         halc_end;
     }
@@ -546,12 +747,6 @@ static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* st
     halc_end;
 }
 
-static errc match_reduce_speech(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce) 
-{
-    *didReduce = FALSE;
-    halc_end;
-}
-
 static errc match_reduce_tab(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
     *didReduce = FALSE;
@@ -606,7 +801,7 @@ static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackE
                     if(!gParserRunNoPrint)
                     {
                         p_print_node(p, &p->ast[stackStart[i - 1]], GREEN_S);
-                        fprintf(stderr, RED("Unable to parse line after reaching end of line, evicting previous tokens\n")); // another stray thought. logging should really be something that we give hooks for the end user code to call into.
+                        fprintf(stderr, RED("Unable to parse line after reaching end of line\n")); // another stray thought. logging should really be something that we give hooks for the end user code to call into.
                     }
                     shouldEvict = TRUE;
                     break;
@@ -774,10 +969,19 @@ static errc parser_reduce(struct s_parser* p)
     // forward matching 
     {
         b8 matched = FALSE;
+
         if(!matched)
             halc_try(match_forward_goto(p, tokenStackStart, stackEnd, &matched));
         if(!matched)
             halc_try(match_forward_directive(p, tokenStackStart, stackEnd, &matched));
+        if(!matched) 
+            halc_try(match_forward_speech(p, tokenStackStart, stackEnd, &matched));
+        if(!matched)
+            halc_try(match_forward_extension(p, tokenStackStart, stackEnd, &matched));
+        if(!matched)
+            halc_try(match_forward_selection(p, tokenStackStart, stackEnd, &matched));
+        if(!matched)
+            halc_try(match_forward_newline(p, tokenStackStart, stackEnd, &matched));
     }
     
 

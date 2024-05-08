@@ -113,6 +113,7 @@ errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, 
     }
 #endif
 
+    gAllocatorStats.allocEventCount += 1;
     gAllocatorStats.allocations += 1;
     gAllocatorStats.allocatedSize += size;
     if(gAllocatorStats.allocatedSize > gAllocatorStats.peakAllocatedSize)
@@ -141,6 +142,7 @@ void hfree_advanced(void* ptr, size_t size, const char* file, i32 lineNumber, co
 #endif
     gAllocatorStats.allocatedSize -= size;
     gAllocatorStats.allocations -= 1;
+    gAllocatorStats.freeEventCount += 1;
     gDefaultAllocator.free_fn(ptr);
 }
 
@@ -186,6 +188,9 @@ errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink,c
     gDefaultAllocator.free_fn(*ptr);
     *ptr = new;
 
+    gAllocatorStats.allocEventCount += 1;
+    gAllocatorStats.freeEventCount += 1;
+    gAllocatorStats.reallocEventCount += 1;
     gAllocatorStats.allocatedSize -= size;
     gAllocatorStats.allocatedSize += newSize;
 

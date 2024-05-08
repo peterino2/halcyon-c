@@ -19,6 +19,7 @@ extern "C" void halc_clear_parser_noprint();
 extern "C" void halc_set_parser_run_verbose();
 extern "C" void halc_clear_parser_run_verbose();
 
+
 // utilities tests
 static errc loading_file_test() 
 {
@@ -304,6 +305,7 @@ static errc test_parser_directives()
 #include <chrono>
 #include <iostream>
 
+#define TEST_SPEED_ITERATION_COUNT 500
 static errc test_parser_speed()
 {
     using namespace std::chrono;
@@ -314,7 +316,7 @@ static errc test_parser_speed()
     hstr fileContents;
     halc_try(load_and_decode_from_file(&fileContents, &filename));
 
-    i32 i = 500;
+    i32 i = TEST_SPEED_ITERATION_COUNT ;
     high_resolution_clock::time_point t1 = high_resolution_clock::now();
     do {
         struct tokenStream ts;
@@ -330,7 +332,14 @@ static errc test_parser_speed()
 
     duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
 
-    std::cout << "Time elapsed for test 10000 ast generations " << time_span.count() << " seconds average time: " << time_span.count() / 500 * 1000 << "ms" << std::endl;
+    std::cout << "Time elapsed for test " 
+        << TEST_SPEED_ITERATION_COUNT 
+        << " ast generations " 
+        << time_span.count() 
+        << " seconds average time: " 
+        << time_span.count() / 500 * 1000 
+        << "ms" 
+        << std::endl;
 
     hstr_free(&fileContents);
     halc_end;
@@ -412,7 +421,18 @@ static i32 runAllTests()
             errorCode = errorCodeFromUntrack;
         }
 
-        printf(GREEN("stats - memory remaining at end of test: %0.3lfK (peak: %" "0.3lf" "K) peakAllocations: %" PRId32"\n"), ((double) stats.allocatedSize) / 1000.0, ((double)stats.peakAllocatedSize) / 1000.0, stats.peakAllocationsCount);
+        printf(GREEN("stats - memory remaining at end of test: %0.3lfK (peak: %" "0.3lf" "K) peakAllocations: % "
+                    PRId32
+                    "; total Events: %" PRId64 " (%" PRId64 " frees %" PRId64 " allocs %" PRId64 " reallocs)"
+                    "\n"),
+                ((double) stats.allocatedSize) / 1000.0,
+                ((double)stats.peakAllocatedSize) / 1000.0,
+                stats.peakAllocationsCount,
+                stats.freeEventCount + stats.allocEventCount,
+                stats.freeEventCount,
+                stats.allocEventCount,
+                stats.reallocEventCount
+                );
 
         if(errorCode != ERR_OK)
         {

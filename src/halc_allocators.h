@@ -15,6 +15,9 @@ EXTERN_C_BEGIN
 struct allocatorStats{
     i32 allocations;
     i32 peakAllocationsCount;
+    i64 freeEventCount;
+    i64 allocEventCount;
+    i64 reallocEventCount;
     i64 allocatedSize;
     i64 peakAllocatedSize;
 };

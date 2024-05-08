@@ -62,8 +62,10 @@ enum ANodeType {
     ANODE_SPEECH, // ok
     ANODE_SEGMENT_LABEL,
     ANODE_GOTO,
+    ANODE_END,
     ANODE_DIRECTIVE,
     ANODE_EXPRESSION,
+    ANODE_EXTENSION,
     ANODE_GRAPH,
     ANODE_INVALID
 };
@@ -105,7 +107,6 @@ struct anode_segment_label {
     i32 tabCount;
 };
 
-// goal of parser is to reduce, reduce, reduce until we get a graph
 struct anode_graph {
     struct anode_list_alloc children;
 };
@@ -122,6 +123,11 @@ struct anode_expression {
     anode_token_t tokenEnd;
 };
 
+struct anode_extension {
+    anode_token_t extension;
+    i32 tabCount;
+};
+
 struct anode_goto {
     struct anode_list_alloc label;
     i32 tabCount;
@@ -135,9 +141,10 @@ struct anode
 
     enum ANodeType typeTag;
     union NodeData{
-        i32 token; // this node is just a token
+        anode_token_t token; // this node is just a token
         struct anode_selection selection;
         struct anode_speech speech;
+        struct anode_extension extension;
         struct anode_segment_label label;
         struct anode_goto directiveGoto;
         struct anode_expression expression;

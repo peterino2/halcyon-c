@@ -1,4 +1,8 @@
 _peter/*
 build/*
+build_debug/*
+build_release/*
 localNodes
-
+*.pdb
+*.exe
+*.lib
