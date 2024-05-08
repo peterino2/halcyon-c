@@ -9,7 +9,7 @@ static b8 gParserRunVerbose;
 
 struct anode_list_ref {
     i32* start;
-    i32* end;
+    i32* listEnd;
 };
 
 void halc_set_parser_run_verbose() 
