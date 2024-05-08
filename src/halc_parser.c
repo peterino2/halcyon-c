@@ -5,6 +5,31 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+static b8 gParserRunVerbose;
+
+struct anode_list_ref {
+    i32* start;
+    i32* end;
+};
+
+void halc_set_parser_run_verbose() 
+{
+    gParserRunVerbose = TRUE;
+}
+
+void halc_clear_parser_run_verbose()
+{
+    gParserRunVerbose = FALSE;
+}
+
+static void print_error_at_node(struct s_parser* p, i32 node, const char* errorText)
+{
+    fprintf(stderr, "\n");
+    p_print_node(p, p->ast + node, RED_S);
+
+    fprintf(stderr, RED("Error: %s \n"), errorText);
+}
+
 static errc aindex_init(struct aindex_list* list, i32 initialCap)
 {
     if(list->cap != 0)
@@ -48,6 +73,41 @@ static void aindex_free(struct aindex_list* list)
     list->cap = 0;
 }
 
+// kind of a lie, all this does is return the current end length of the anode
+static errc p_push_index_list_entry(struct s_parser* p, i32 newIndex)
+{
+    try(aindex_push(&p->list, newIndex));
+    end;
+}
+
+static i32 p_get_index_list_start(struct s_parser* p)
+{
+    return p->list.len;
+}
+
+static void p_assign_parent(struct s_parser* p, i32 target, i32 newParent)
+{
+    p->ast[target].parent = newParent;
+}
+
+static errc p_create_index_list(struct s_parser* p, i32* stackStart, i32* stackEnd, struct anode_list_alloc* newList)
+{
+    // executive decision. I dont think we're going to create any kind of index list with 
+    // a set of tokens longer than 1000, 
+    assert(stackEnd - stackStart < 1000);
+
+    newList->entry = p_get_index_list_start(p);
+    newList->count = 0;
+
+    while(stackStart < stackEnd)
+    {
+        newList->count += 1;
+        p_push_index_list_entry(p, *stackStart);
+        stackStart += 1;
+    }
+    end;
+}
+
 const char* node_id_to_string(i32 id)
 {
     if(id <= COMMENT)
@@ -63,24 +123,36 @@ const char* node_id_to_string(i32 id)
             return YELLOW("SPEECH");
         case ANODE_SEGMENT_LABEL:
             return YELLOW("SEGMENT_LABEL");
-        case ANODE_GRAPH:
-            return GREEN("GRAPH");
         case ANODE_EXPRESSION:
             return CYAN("EXPRESSION");
+        case ANODE_DIRECTIVE:
+            return YELLOW("DIRECTIVE");
+        case ANODE_GOTO:
+            return PURPLE("GOTO");
+        case ANODE_GRAPH:
+            return GREEN("GRAPH");
     }
 
     return "BROKEN NODE ID";
 }
 
-static errc p_print_node(struct s_parser* p, struct anode* n)
+errc p_print_node(struct s_parser* p, struct anode* n, const char* pointerColor)
 {
-    printf("index: %" PRId32 " (%s) parent: %" PRId32" (%s)\n", 
-            n->index, node_id_to_string(n->typeTag),
-            n->parent, node_id_to_string(p->ast[n->parent].typeTag));
+    if(n->parent >= 0 )
+    {
+        printf("index: %" PRId32 " (%s) parent: %" PRId32" (%s)\n", 
+                n->index, node_id_to_string(n->typeTag),
+                n->parent, node_id_to_string(p->ast[n->parent].typeTag));
+    }
+    else 
+    {
+        printf("index: %" PRId32 " (%s)\n", 
+                n->index, node_id_to_string(n->typeTag));
+    }
 
     if(n->typeTag <=  COMMENT)
     {
-        ts_print_token(p->ts, n->nodeData.token, FALSE, GREEN_S);
+        ts_print_token(p->ts, n->nodeData.token, FALSE, pointerColor);
     }
     else if(n->typeTag == ANODE_SEGMENT_LABEL)
     {
@@ -120,60 +192,6 @@ static errc parser_new_node(struct s_parser* p, struct anode** newNode)
 #define PARSER_INIT_NODESTACK_SIZE 64
 #define PARSER_INIT_NODECOUNT 256
 
-/**
- * overall design spec for a large world
- *
- * project/
- *      dresden/
- *          dresden.halc # encounters and stuff
- *          characters/
- *              steward.halc # talking to the steward in neutral
- *          oneshots/
- * */
-
-/**
- *
-$: Does that make sense?
-    > No, can you repeat that?
-        @goto main_menu_dialogue
-
-    @if(condition = )
-    > Yes, I'm ready to start.
-        $: Thanks for playing. And good luck!
-        @changeRooms(1 content/BreakRoom)
-@end
- *
- *
- * shitty ebnf
- *
- * s_graph -> [expression+]
- * 
- * expression -> (speech | selection | directive | segmentLabel)
- *
- * ----------- these guys could be folded into a custom type but it would add complexity and not much perf gain b/c the tab is optional
- * directive -> [TAB+] AT L_PAREN * R_PAREN [COMMENT] NEWLINE
- *
- * speech -> [TAB+] (SPEAKERSIGN | LABEL) COLON STORY_TEXT [COMMENT] NEWLINE
- *
- * selection -> [TAB+] R_ANGLE STORY_TEXT [COMMENT] NEWLINE
- * ------------
- *
- * segmentLabel -> L_SQBRACK LABEL R_SQBRACK NEWLINE
- *
- * are there any disadvantages to this layout? metadata layout is limited without being 
- * recursive descent. however recoverability is really good.
- *
- * s_graph is the main unit of forward parsing.
- *
- * in order of matching: 
- *
- * segmentLabel -> [[hello_world]]
- * selection -> [> hello, how's it going\n]
- * speech -> [$: this is a thing!#[commentthingy] \n]
- * dialogue -> selection | speech
- *  
- */
-
 static errc parser_push_stack(struct s_parser* p, struct anode* node); // forward decl for parser_init
 
 errc parser_init(struct s_parser* p, const struct tokenStream* ts)
@@ -204,8 +222,8 @@ errc parser_init(struct s_parser* p, const struct tokenStream* ts)
     // node 0's parent is itself, and is the core s_graph
     newNode->parent = 0;
     newNode->typeTag =  ANODE_GRAPH;
-    newNode->nodeData.graph.children = -1;
-    newNode->nodeData.graph.childrenCount = 0;
+    newNode->nodeData.graph.children.entry = -1;
+    newNode->nodeData.graph.children.count = 0;
     
     p->tabCount = 0;
 
@@ -295,6 +313,23 @@ static void pop_stack_discard(struct s_parser* p)
     p->stackCount -= 1;
 }
 
+// ---- helper functions ----
+static b8 isTagTerminal(i32 tag)
+{
+    return tag <= COMMENT;
+}
+
+static b8 isNodeTerminal(struct s_parser* p, i32 node)
+{
+    return isTagTerminal(p->ast[node].typeTag);
+}
+
+static i32 p_getTypeTag(struct s_parser* p, i32 node)
+{
+    return p->ast[node].typeTag;
+}
+
+// -- match reduce functions --
 static errc match_reduce_space(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
     *didReduce = FALSE;
@@ -303,6 +338,193 @@ static errc match_reduce_space(struct s_parser* p, i32* stackStart, i32* stackEn
         pop_stack_discard(p);
         *didReduce = TRUE;
     }
+    end;
+}
+
+static errc match_forward_speech(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
+{
+    end;
+}
+
+static errc match_forward_goto(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* matched)
+{
+    *matched = FALSE;
+
+    i32 stackLen = (i32) (stackEnd - stackStart);
+
+    if(stackLen < 4)
+    {
+        end;
+    }
+
+    if(p_getTypeTag(p, stackStart[0]) != AT || 
+       p_getTypeTag(p, stackStart[1]) != LABEL ||
+       p_getTypeTag(p, stackEnd[-1]) != NEWLINE
+       )
+    {
+        end;
+    }
+
+    // this case will get caught by the reduce case later on
+    if (p_getTypeTag(p, stackStart[2]) == L_PAREN)
+    {
+        end;
+    }
+
+    if (p_getTypeTag(p, stackStart[2]) != LABEL)
+    {
+        // todo implement error context here
+        fprintf(stderr, RED("Expected a label after  goto"));
+        end;
+    }
+
+    *matched = TRUE;
+
+    struct anode* newNode;
+    try(parser_new_node(p, &newNode));
+    newNode->typeTag = ANODE_GOTO;
+
+    i32 delta = -1;
+    // -1 must be newline
+    // -2 might be a comment
+    if(p_getTypeTag(p, stackEnd[-2]) == COMMENT)
+    {
+        delta = -2;
+    }
+
+    try(
+        p_create_index_list(p, stackStart + 2, stackEnd + delta, &(newNode->nodeData.directiveGoto.label))
+    );
+
+    printf("number of tokens in label:%d \n", newNode->nodeData.directiveGoto.label.count);
+    for (i32 i = 0; i < stackLen; i += 1)
+    {
+        pop_stack_discard(p);
+    }
+
+    parser_push_stack(p, newNode);
+
+    end;
+}
+
+// Test Cases for directive
+//
+// note that GOTO is a special directive.
+//
+// directives are always 
+//
+// @ LABEL L_PAREN Tokenlist R_PAREN [COMMENT] NEWLINE
+// 1  2    3         4        5         5       6
+//
+static errc match_forward_directive(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce) 
+{
+    *didReduce = FALSE;
+    i32 stackLen = (i32)(stackEnd - stackStart);
+
+
+    if(stackLen < 4)
+    {
+        end;
+    }
+
+    i32* s = stackStart;
+
+    // first symbol must always be an @
+    // second symbol must be a LABEL
+    // last symbol must be NEWLINE
+    if (p_getTypeTag(p, stackStart[0]) != AT || 
+        p_getTypeTag(p, stackStart[1]) != LABEL || 
+        p_getTypeTag(p, stackStart[2]) != L_PAREN || 
+        p_getTypeTag(p, stackEnd[-1]) != NEWLINE)
+    {
+        end;
+    }
+
+    // walk forward until we find the L_PAREN
+    i32* lParen = stackStart;
+    i32* rParen = stackEnd - 1; // walk backwards until we find the R_PAREN
+
+    while (lParen != rParen && p_getTypeTag(p, *lParen) != L_PAREN)
+    {
+        lParen++;
+    }
+
+    // match incomplete, this could be a goto
+    if(p_getTypeTag(p, *lParen) != L_PAREN)
+    {
+        end;
+    }
+
+    while (rParen != lParen && p_getTypeTag(p, *rParen) != R_PAREN)
+    {
+        rParen--;
+    }
+
+    // match incomplete, we might not have finished reading the whole line yet
+    if(p_getTypeTag(p, *rParen) != R_PAREN)
+    {
+        end;
+    }
+
+    // create a token list between lparen and rParen
+    i32 indexList = -1;
+    i32 indexListLen = 0;
+    // ( a b c ) 
+    // 0 1 2 3 4 diff = 4
+    //
+    // ( a )
+    // 0 1 2 diff = 2;
+    //
+    // ( ) 
+    // 0 1 diff = 1;
+    struct anode* newNode;
+    try(parser_new_node(p, &newNode));
+    newNode->typeTag = ANODE_DIRECTIVE;
+
+
+    // assign parents to the nodes that we touched here.
+    p_assign_parent(p, stackStart[0], newNode->index);
+    p_assign_parent(p, stackStart[1], newNode->index);
+    p_assign_parent(p, *lParen, newNode->index);
+    p_assign_parent(p, *rParen, newNode->index);
+
+    // if the parentheses start and the parenthese have a delta smaller than 2 then we do not need to allocate a nodelist
+    if (rParen - lParen >= 2)
+    {
+        i32* nodeStart = lParen + 1;
+        i32* nodeEnd = rParen - 1;
+
+        indexListLen  = (i32)(rParen - nodeStart);
+        assert(indexListLen > 0); // note to self, UNKNOWN_ERRORs should get removed
+        indexList = p_get_index_list_start(p);
+
+        for (i32 i = 0; i < indexListLen; i += 1)
+        {
+            try(p_push_index_list_entry(p, nodeStart[i]));
+            p_assign_parent(p, nodeStart[i], newNode->index);
+        }
+    }
+
+    newNode->nodeData.directive.commandLabel = stackStart[1];
+    newNode->nodeData.directive.tabCount = p->tabCount;
+    newNode->nodeData.directive.innerTokens.entry = indexList;
+    newNode->nodeData.directive.innerTokens.count = indexListLen;
+    
+    for(i32  j = 0; j < stackLen; j += 1)
+    {
+        pop_stack_discard(p);
+    }
+
+    parser_push_stack(p, newNode);
+
+    *didReduce = TRUE;
+
+    end;
+}
+
+static errc match_reduce_speech(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce) 
+{
+    *didReduce = FALSE;
     end;
 }
 
@@ -318,53 +540,81 @@ static errc match_reduce_tab(struct s_parser* p, i32* stackStart, i32* stackEnd,
     end;
 }
 
+// misc. error matching, attempts to clean up the parser stack.
 static errc match_reduce_errors(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
     *didReduce = FALSE;
 
     i32 len = (i32)(stackEnd - stackStart);
+    b8 shouldEvict = FALSE;
+
     if(p->ast[stackStart[0]].typeTag == ANODE_GRAPH)
     {
         // check if there are errors.
         //
         // one key indication of an error is walking past a newline still on the stack
-        //
-
-        i32 newLineCount = 0;
-        for(int i = 0; i < len; i+=1)
+        
+        if(!shouldEvict)
         {
-            if(p->ast[stackStart[i]].typeTag == NEWLINE)
+            // find start of terminal list.
+            i32* terminalStart = stackStart;
+            if(p->ast[stackStart[0]].typeTag == L_SQBRACK && p->ast[stackStart[1]].typeTag != LABEL)
             {
-                newLineCount += 1;
+
+                fprintf(stderr, RED("Unexpected token %s after "), node_id_to_string(p->ast[stackStart[1]].typeTag));
+                ts_print_token(p->ts, p->ast[stackStart[1]].nodeData.token, FALSE, RED_S);
+                shouldEvict = TRUE;
             }
-            else {
-                
-                if(newLineCount >= 1)
+        }
+        
+
+        if(!shouldEvict)
+        {
+            i32 newLineCount = 0;
+            for(int i = 0; i < len; i+=1)
+            {
+                if(p->ast[stackStart[i]].typeTag == NEWLINE)
                 {
-                    fprintf(stderr, RED("Unable to parse line, evicting previous tokens\n")); // another stray thought. logging should really be something that we give hooks for the end user code to call into.
-                                         // directly writing to stderr or stdout should be fully redirectible
-                    // raise(ERR_UNABLE_TO_PARSE_LINE); // What to do here. 
-                                                     // We can report the error, evict the current line and just continue parsing from there.
-                                                     // Because this is such a recoverable error, maybe 
-                                                     // its better to not use raise() here.
-                    
-                    i32 currentStackEnd = stackEnd[-1];
-                    while(p->ast[p->stack[p->stackCount-1]].typeTag <= COMMENT)
-                    {
-                        pop_stack_discard(p);
-                    }
-
-                    parser_push_stack(p, &p->ast[currentStackEnd]);
-
-                    *didReduce = TRUE;
+                    newLineCount += 1;
+                }
+                else if(newLineCount >= 1)
+                {
+                    p_print_node(p, &p->ast[stackStart[i - 1]], GREEN_S);
+                    fprintf(stderr, RED("Unable to parse line reached end of line, evicting previous tokens\n")); // another stray thought. logging should really be something that we give hooks for the end user code to call into.
+                    shouldEvict = TRUE;
                     break;
                 }
             }
         }
+
+
+        if(shouldEvict)
+        {
+            // directly writing to stderr or stdout should be fully redirectible... thats one for the todo.
+            // raise(ERR_UNABLE_TO_PARSE_LINE); // What to do here. 
+            // We can report the error, evict the current line and just continue parsing from there.
+            // Because this is such a recoverable error, maybe 
+            // its better to not use raise() here.
+            
+            i32 currentStackEnd = stackEnd[-1];
+            while(p->ast[p->stack[p->stackCount-1]].typeTag <= COMMENT)
+            {
+                pop_stack_discard(p);
+            }
+
+            parser_push_stack(p, &p->ast[currentStackEnd]);
+
+            *didReduce = TRUE;
+        }
+
     }
     end;
 }
 
+
+// what the hell was i thinking about this one.
+// 
+// what is an expression?
 static errc match_reduce_expression(struct s_parser* p, i32* stackStart, i32* stackEnd, b8* didReduce)
 {
     end;
@@ -446,7 +696,8 @@ static errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32*
             pop_stack_discard(p);
 
         parser_push_stack(p, label);
-        p_print_node(p, label);
+        if(gParserRunVerbose)
+            p_print_node(p, label, GREEN_S);
 
         p->tabCount = 0;
 
@@ -470,9 +721,8 @@ static errc match_reduce_segment_label(struct s_parser* p, i32* stackStart, i32*
 
 static errc parser_reduce(struct s_parser* p)
 {
-    
     assertMsg(p->stackCount > 0, "parser active stack was %d", p->stackCount);
-    
+
     b8 continueReducing = TRUE;
     b8 didReduce = FALSE;
 
@@ -484,6 +734,25 @@ static errc parser_reduce(struct s_parser* p)
     // stray thought:
     // if we encounter an impoossible sequence, we should be able to evict the broken sequence 
     // and continue parsing as normal.
+    //
+    // parser should maybe contain an error list?
+
+    i32* tokenStackStart = p->stack;
+
+    while(!isNodeTerminal(p, *tokenStackStart))
+    {
+        tokenStackStart++;
+    }
+
+    // forward matching 
+    {
+        b8 matched = FALSE;
+        if(!matched)
+            try(match_forward_goto(p, tokenStackStart, stackEnd, &matched));
+        if(!matched)
+            try(match_forward_directive(p, tokenStackStart, stackEnd, &matched));
+    }
+    
 
     while(continueReducing)
     {
@@ -513,25 +782,32 @@ static errc parser_advance(struct s_parser* p)
     
     struct anode* newNode;
     try(parser_new_node(p, &newNode));
-    printf("nodeIndex = %d\n", newNode->index);
+
+    if(gParserRunVerbose)
+        printf("nodeIndex = %d\n", newNode->index);
 
     // - add it to ast, then add it to stack
     newNode->parent = -1;
     newNode->typeTag = (enum ANodeType) p->t->tokenType; // type tags <= COMMENT are Token Terminals
     newNode->nodeData.token = (i32)(p->t - p->ts->tokens);
 
-    printf("token offset %d\n", newNode->nodeData.token);
-    ts_print_token(p->ts, newNode->nodeData.token, FALSE, GREEN_S);
+    if(gParserRunVerbose)
+    {
+        printf("token offset %d\n", newNode->nodeData.token);
+        ts_print_token(p->ts, newNode->nodeData.token, FALSE, GREEN_S);
+    }
 
     try(parser_push_stack(p, newNode));
 
-    printf("stack: ");
-
-    for(i32 i = 0; i < p->stackCount; i += 1)
+    if(gParserRunVerbose)
     {
-        printf(" %s ", node_id_to_string(p->ast[p->stack[i]].typeTag));
+        printf("stack: ");
+        for(i32 i = 0; i < p->stackCount; i += 1)
+        {
+            printf(" %s ", node_id_to_string(p->ast[p->stack[i]].typeTag));
+        }
+        printf("\n");
     }
-    printf("\n");
 
     // - call parser_reduce to merge the active stack if merges are possible
     parser_reduce(p);
@@ -553,11 +829,12 @@ errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
         tryCleanup(parser_advance(&p));
     }
 
-    printf("parser lenght = %d\n", p.ast_len);
+    printf("parser nodes constructed = %d\n", p.ast_len);
 
-    // graph construction is should now happen here.
+    // graph construction should happen at this point
 cleanup:
     parser_free(&p);
 
     end;
 }
+

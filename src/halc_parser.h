@@ -43,7 +43,7 @@ struct aindex_list
 };
 
 const char* node_id_to_string(i32 id);
-errc p_print_node(struct s_parser* p, struct anode* n);
+errc p_print_node(struct s_parser* p, struct anode* n, const char* pointerColor);
 errc parser_init(struct s_parser* p, const struct tokenStream* ts);
 void parser_free(struct  s_parser* p);
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts);
@@ -53,6 +53,8 @@ enum ANodeType {
     ANODE_SELECTION = COMMENT + 1, // ok
     ANODE_SPEECH, // ok
     ANODE_SEGMENT_LABEL,
+    ANODE_GOTO,
+    ANODE_DIRECTIVE,
     ANODE_EXPRESSION,
     ANODE_GRAPH,
     ANODE_INVALID
@@ -60,6 +62,11 @@ enum ANodeType {
  
 // index into tokenstream as a token
 typedef i32 anode_token_t;
+
+struct anode_list_alloc {
+    i32 entry;
+    i32 count;
+};
 
 struct anode_selection{
     anode_token_t storyText;
@@ -80,8 +87,7 @@ struct anode_speech{
 
 struct anode_directive{
     anode_token_t commandLabel;
-    i32 children;
-    i32 childrenCount;
+    struct anode_list_alloc innerTokens;
     i32 tabCount;
 };
 
@@ -93,8 +99,7 @@ struct anode_segment_label {
 
 // goal of parser is to reduce, reduce, reduce until we get a graph
 struct anode_graph {
-    i32 children; // statically allocated childlist handle
-    i32 childrenCount; // number of children in the indexlist
+    struct anode_list_alloc children;
 };
 
 // main reduction, used to generate the graph
@@ -102,13 +107,15 @@ struct anode_expression {
     // children indexes storage
     // we don't dynamically resize or destroy or unload any of this shit so..
     // we could just have two pointers into a bump-allocated a_index_list
-
-    i32 children; // statically allocated childlist handle
-    i32 childrenCount; // number of children in the indexlist
+    struct anode_list_alloc children;
 
     // reference to start and end tokens
     anode_token_t tokenStart;
     anode_token_t tokenEnd;
+};
+
+struct anode_goto {
+    struct anode_list_alloc label;
 };
 
 // ast node
@@ -123,6 +130,7 @@ struct anode
         struct anode_selection selection;
         struct anode_speech speech;
         struct anode_segment_label label;
+        struct anode_goto directiveGoto;
         struct anode_expression expression;
         struct anode_directive directive;
         struct anode_graph graph;

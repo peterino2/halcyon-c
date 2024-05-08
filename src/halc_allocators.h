@@ -22,7 +22,7 @@ struct allocatorStats{
 // ==================== Allocators ======================
 
 // uses default C allocator that comes with your os support package.
-errc setup_default_allocator();
+errc setup_default_allocator(); // NAME_TODO
 
 // allocator interface
 struct allocator{
@@ -36,7 +36,7 @@ struct allocator{
 extern struct allocator gDefaultAllocator;
 
 // overrides gDefaultAllocator with a custom malloc and free function
-errc setup_default_custom_allocator(void* (*malloc_fn) (size_t), void (*free_fn) (void*));
+errc setup_default_custom_allocator(void* (*malloc_fn) (size_t), void (*free_fn) (void*)); // NAME_TODO
 
 
 // Will go to cleanup if alloc fails for any reason.
@@ -58,10 +58,10 @@ errc setup_default_custom_allocator(void* (*malloc_fn) (size_t), void (*free_fn)
 errc halloc_advanced(void** ptr, size_t size, const char* file, i32 lineNumber, const char* func);
 void hfree_advanced(void* ptr, size_t size, const char* file, i32 lineNumber, const char* func);
 errc hrealloc_advanced(void** ptr, size_t size, size_t newSize, b8 allowShrink, const char* file, i32 lineNumber, const char* func);
-void track_allocs(const char* contextString);
-errc untrack_allocs(struct allocatorStats* outTrackedAllocationStats);
-void primt_memory_statistics();
-errc enable_allocation_tracking();
+void track_allocs(const char* contextString); // NAME_TODO
+errc untrack_allocs(struct allocatorStats* outTrackedAllocationStats); // NAME_TODO
+void print_memory_statistics(); // NAME_TODO
+errc enable_allocation_tracking(); // NAME_TODO
 
 EXTERN_C_END
 

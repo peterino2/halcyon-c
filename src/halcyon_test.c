@@ -12,8 +12,12 @@
 #include "halc_parser.h"
 
 #ifndef NO_TESTS
+
+extern void halc_set_parser_run_verbose();
+extern void halc_clear_parser_run_verbose();
+
 // utilities tests
-errc loading_file_test() 
+static errc loading_file_test() 
 {
     hstr decoded;
     const hstr filePath = HSTR("testfiles/terminals.halc");
@@ -23,7 +27,7 @@ errc loading_file_test()
 }
 
 // ===================== tokenizer tests ========================
-errc tokenizer_directives_basic()
+static errc tokenizer_directives_basic()
 {
     hstr testString = HSTR("[helloworld]\n@setVar(wutang clan coming at you)\n @jumpIf(x >= 2)");
     hstr testFileName = HSTR("no file");
@@ -65,7 +69,7 @@ cleanup:
 }
 
 
-errc test_ts_matches_expected_stream(const struct tokenStream* ts, i32* tokens, i32 len)
+static errc test_ts_matches_expected_stream(const struct tokenStream* ts, i32* tokens, i32 len)
 {
     for(i32 i = 0; i < len; i+=1)
     {
@@ -81,7 +85,7 @@ errc test_ts_matches_expected_stream(const struct tokenStream* ts, i32* tokens, 
     end;
 }
 
-errc tokenizer_full()
+static errc tokenizer_full()
 {
     const hstr filename = HSTR("testfiles/storySimple.halc");
 
@@ -169,7 +173,7 @@ cleanup:
     end;
 }
 
-errc tokenizer_test_random_utf8()
+static errc tokenizer_test_random_utf8()
 {
     hstr filename = HSTR("testfiles/random_utf8.halc");
     hstr content;
@@ -192,7 +196,7 @@ cleanup:
     end;
 }
 
-errc test_tokenizer_stress()
+static errc test_tokenizer_stress()
 {
     const hstr filename = HSTR("testfiles/stress_easy.halc");
 
@@ -209,7 +213,7 @@ errc test_tokenizer_stress()
 
 b8 gPrintouts;
 
-errc token_printouts()
+static errc token_printouts()
 {
     const hstr filename = HSTR("testfiles/storySimple.halc");
 
@@ -229,30 +233,12 @@ errc token_printouts()
     return ERR_OK;
 }
 
-
-// tests first phase of parsing, converting a tokenstream into a graph of nodes
-errc test_parser_labels()
+static errc parse_test_with_string(hstr* testString)
 {
-    hstr testString = HSTR(
-        "[label]\n"
-        "\t[label2 ]\n"
-        "[@label2 ] # with a comment, this one should error with unexpected token in @\n"
-        "[label2 label2 ] # with a comment, this one should error with unexpected multiple tokens\n"
-        "[label2 32132 + - 2 32] absolutely fucked label\n"
-        "@directive([with some oddities])\n"
-        "$:this is a sample dialogue\n" 
-        "homer: give me another dialogue \n"
-        "    > give him a real dialogue\n"
-        "        homer: thanks for the new dialogue\n"
-        "    > nah, don't do that #[123456] why would you pick this\n"
-        "        homer: you are the worst\n"
-        "$:end of dialogue\n" );
-
     hstr filename = HSTR("no file");
-
     hstr normalizedTestString;
     
-    try(hstr_normalize(&testString,&normalizedTestString));
+    try(hstr_normalize(testString, &normalizedTestString));
 
     struct tokenStream ts;
 
@@ -265,7 +251,49 @@ errc test_parser_labels()
     hstr_free(&normalizedTestString);
     // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));
     end;
+}
+        // "@directive([with some oddities])\n"
+        // "$:this is a sample dialogue\n" );
+        // "homer: give me another dialogue \n"
+        // "    > give him a real dialogue\n"
+        // "        homer: thanks for the new dialogue\n"
+        // "    > nah, don't do that #[123456] why would you pick this\n"
+        // "        homer: you are the worst\n"
+        // "$:end of dialogue\n" );
 
+// tests first phase of parsing, converting a tokenstream into a graph of nodes
+static errc test_parser_labels()
+{
+    hstr testString = HSTR(
+        "[label]\n"
+        "\t[label2 ]\n"
+        "[@label2 ] # with a comment, this one should error with unexpected token in @\n"
+        "[label2 label2 ] # with a comment, this one should error with unexpected multiple tokens\n"
+        "[label2 32132 + - 2 32] absolutely fucked label\n"
+        "$: this is some speech to end it with\n"
+        );
+
+
+    try(parse_test_with_string(&testString));
+
+    end;
+}
+
+static errc test_parser_directives() 
+{
+    halc_set_parser_run_verbose();
+    hstr testString = HSTR(
+        "[label]\n"
+        "@directive([with some oddities])\n"
+        "@directive([with some oddities] h jdhskah 2y811 !)\n"
+        "@directive()\n" // one label only
+        "@goto\n" // special goto directive
+        "@goto .\n" // special goto directive
+        "@goto region.characters.something\n" // special goto directive
+        "$:this is a sample dialogue\n" );
+
+    try(parse_test_with_string(&testString));   
+    end;
 }
 
 errc debug_print_sizes()
@@ -292,7 +320,7 @@ errc test_hstr_printf();
 
 #define TEST_IMPL(X, DESC) {#X ": " DESC, X}
 
-struct testEntry gTests[] = {
+static struct testEntry gTests[] = {
     TEST_IMPL(debug_print_sizes, "checking sizes of various structs"),
     TEST_IMPL(loading_file_test, "simple file loading test"),
     TEST_IMPL(tokenizer_directives_basic, "testing tokenization of directives"),
@@ -301,10 +329,11 @@ struct testEntry gTests[] = {
     TEST_IMPL(test_tokenizer_stress, "testing tokenization on a larger set"),
     TEST_IMPL(token_printouts, "debugging token printouts"),
     TEST_IMPL(test_hstr_printf, "testing printf stuff in hstr"),
-    TEST_IMPL(test_parser_labels, "parsing tokens into a graph, specifically with error cases for labels")
+    TEST_IMPL(test_parser_labels, "parsing tokens into a graph, specifically with error cases for labels"),
+    TEST_IMPL(test_parser_directives, "parsing tokens into a graph, specificially testing cases for directives")
 };
 
-i32 runAllTests()
+static i32 runAllTests()
 {
     i32 failures = 0;
     i32 passes = 0;
@@ -315,6 +344,7 @@ i32 runAllTests()
         setup_error_context();
         track_allocs(gTests[i].testName);
         errc errorCode = gTests[i].testFunc();
+        halc_clear_parser_run_verbose();
 
         struct allocatorStats stats;
         errc errorCodeFromUntrack = untrack_allocs(&stats);
