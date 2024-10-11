@@ -1,0 +1,18 @@
+# overview of the story
+# stories are organized into regions
+# entire games are consisted of a list of regions
+eg. 
+
+
+# once a region is created in halcyon. it is marked by a region.halc
+# entire games could just be one region depending on the size of 
+# the game and the region.
+
+# within a region there are categories
+# regions are intended to be modular and dependencies across regions 
+# must be queried and optional.
+
+# within a region though, it is expected that all content needed to 
+# execute each story graph is properly loaded when the region is loaded
+
+

@@ -10,6 +10,7 @@
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
 #include "halc_parser.h"
+#include "halcyon.h"
 
 #ifndef NO_TESTS
 
@@ -236,8 +237,10 @@ static errc token_printouts()
     return ERR_OK;
 }
 
+
 static errc parse_test_with_string(hstr* testString)
 {
+    halc_set_parser_noprint();
     hstr filename = HSTR("no file");
     hstr normalizedTestString;
     
@@ -248,11 +251,21 @@ static errc parse_test_with_string(hstr* testString)
 
     halc_try(tokenize(&ts, &normalizedTestString, &filename));
     halc_try(parse_tokens(&graph, &ts));
+    halc_try(graph_init(&graph));
 
     ts_free(&ts);
     hstr_free(&normalizedTestString);
     graph_free(&graph);
     // hfree(graph.nodes, graph.capacity * sizeof(struct s_node));,
+    halc_end;
+}
+
+// verbose version of parse_test_with_string
+static errc parse_test_with_stringv(hstr* testString)
+{
+    halc_set_parser_run_verbose();
+    halc_try(parse_test_with_string(testString));
+
     halc_end;
 }
 
@@ -268,11 +281,11 @@ static errc parse_test_with_string(hstr* testString)
 // tests first phase of parsing, converting a tokenstream into a graph of nodes
 static errc test_parser_labels()
 {
-    halc_set_parser_run_verbose();
+    halc_set_parser_noprint();
     hstr testString = HSTR(
         "[label]\n"
         "\t[label2 ]\n"
-        "[@label2 ] # with a comment, this one should error with unexpected token in @\n"
+        "    [@label2 ] # with a comment, this one should error with unexpected token in @\n"
         "[label2 label2 ] # with a comment, this one should error with unexpected multiple tokens\n"
         "[label2 32132 + - 2 32] absolutely fucked label\n"
         "$: this is some speech to end it with\n"
@@ -328,6 +341,7 @@ static errc test_parser_speed()
 
         halc_try(tokenize(&ts, &fileContents, &filename));
         halc_try(parse_tokens(&graph, &ts));
+        halc_try(graph_init(&graph));
 
         ts_free(&ts);
         graph_free(&graph);
@@ -341,7 +355,7 @@ static errc test_parser_speed()
         << " ast generations " 
         << time_span.count() 
         << " seconds average time: " 
-        << time_span.count() / 500 * 1000 
+        << time_span.count() / TEST_SPEED_ITERATION_COUNT * 1000 
         << "ms" 
         << std::endl;
 
@@ -362,6 +376,38 @@ static errc test_parser_speech()
         );
 
     halc_try(parse_test_with_string(&testString));   
+    halc_end;
+}
+
+
+static errc test_parser_recursive_choices()
+{
+    hstr testString = HSTR(
+        "[label]\n"
+        "@directive()\n"
+        "$: This is a sample dialogue\n"
+        "personA: Lmao what is going on\n"
+        "    > What is going on\n"
+        "        $: This is a response\n"
+        "    > What is going on2\n"
+        "        $: This is a different response\n"
+        "        : This is an extension\n"
+        "            > This is a different choice\n"
+        "                $ : This is a different response\n"
+    );
+
+    halc_try(parse_test_with_stringv(&testString));
+    halc_end;
+}
+
+errc test_parser_story_simple()
+{
+    const hstr filename = HSTR("testfiles/stress_easy.halc");
+    hstr fileContents;
+    halc_try(load_and_decode_from_file(&fileContents, &filename));
+    halc_try(parse_test_with_string(&fileContents));   
+    hstr_free(&fileContents);
+
     halc_end;
 }
 
@@ -400,6 +446,8 @@ static struct testEntry gTests[] = {
     TEST_IMPL(test_hstr_printf, "testing printf stuff in hstr"),
     TEST_IMPL(test_parser_labels, "parsing tokens into a graph, specifically with error cases for labels"),
     TEST_IMPL(test_parser_directives, "parsing tokens into a graph, specificially testing cases for directives"),
+    TEST_IMPL(test_parser_story_simple, "parses tokens into a graph and starts walking recursively"),
+    TEST_IMPL(test_parser_recursive_choices, "parses a recursive graph"),
     TEST_IMPL(test_parser_speed, "parses tokens into a graph, specifically measuring speed")
 };
 

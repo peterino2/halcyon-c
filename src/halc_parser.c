@@ -13,6 +13,16 @@ struct anode_list_ref {
     i32* listEnd;
 };
 
+void parser_dump_stack(struct s_parser* p)
+{
+    printf("stack: ");
+    for (i32 i = 0; i < p->stackCount; i += 1)
+    {
+        printf(" %s ", node_id_to_string(p->ast[p->stack[i]].typeTag));
+    }
+    printf("\n");
+}
+
 void halc_set_parser_noprint() 
 {
     gParserRunNoPrint = TRUE;
@@ -991,7 +1001,6 @@ static errc parser_reduce(struct s_parser* p)
         if(!matched)
             halc_try(match_forward_newline(p, tokenStackStart, stackEnd, &matched));
     }
-    
 
     while(continueReducing)
     {
@@ -1040,12 +1049,7 @@ static errc parser_advance(struct s_parser* p)
 
     if(gParserRunVerbose)
     {
-        printf("stack: ");
-        for(i32 i = 0; i < p->stackCount; i += 1)
-        {
-            printf(" %s ", node_id_to_string(p->ast[p->stack[i]].typeTag));
-        }
-        printf("\n");
+        parser_dump_stack(p);
     }
 
     // - call parser_reduce to merge the active stack if merges are possible
@@ -1058,10 +1062,41 @@ static errc parser_advance(struct s_parser* p)
     halc_end;
 }
 
+static errc graph_link_parser(struct s_graph* graph, const struct s_parser* p)
+{
+    // walk up the parser's stack from start to finish creating nodes for each one.
+    // s_graph also elaborates all text and takes ownerhsip of all strings in the parser.
+    // ... shit- for debugging purposes it should probably still retain tokens right?
+    if (gParserRunVerbose)
+    {
+        printf("Starting to eat da poo poo");
+    }
+    halc_end;
+}
+
+errc graph_init(struct s_graph* graph)
+{
+    static const int defaultSize = 16;
+    halloc(&graph->strings, sizeof(hstr) * defaultSize);
+    graph->stringsLen = 0;
+    graph->stringsCap = defaultSize;
+
+    halloc(&graph->nodes, sizeof(struct s_node) * defaultSize);
+    graph->nodesLen = 0;
+    graph->nodesCap = defaultSize;
+
+    halc_end;
+}
 
 void graph_free(struct s_graph* graph)
 {
-    // no-op for now
+    for (u32 i = 0; i < graph->stringsLen; i += 1)
+    {
+        hstr_free(&graph->strings[i]);
+    }
+
+    hfree(graph->strings, graph->stringsCap * sizeof(hstr));
+    hfree(graph->nodes, graph->nodesCap * sizeof(struct s_node));
 }
 
 errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
@@ -1078,6 +1113,8 @@ errc parse_tokens(struct s_graph* graph, const struct tokenStream* ts)
         printf("parser nodes constructed = %d\n", p.ast_len);
 
     // graph construction should happen at this point
+    halc_try(graph_link_parser(graph, &p));
+
 cleanup:
     parser_free(&p);
 
@@ -1085,3 +1122,61 @@ cleanup:
 }
 
 
+errc label_map_init(struct s_label_map* map)
+{
+    map->len = 0;
+    map->cap = LABELS_MAP_INITIAL_CAP;
+
+    halloc(&map->entries, map->cap * sizeof(struct hash_entry));
+
+    halc_end;
+}
+
+errc label_map_insert(struct s_label_map* map, s_link link)
+{
+    halc_end;
+}
+
+errc graph_append(struct s_graph* graph, struct s_node newNode)
+{
+    if (graph->nodesLen == graph->nodesCap)
+    {
+        u32 newCap = graph->nodesCap * 2;
+        hrealloc(&graph->nodes, graph->nodesCap, newCap, FALSE);
+        graph->nodesCap = newCap;
+    }
+
+    graph->nodes[graph->nodesLen] = newNode;
+    graph->nodesLen += 1;
+
+    halc_end;
+}
+
+errc graph_clone_string(struct s_graph* graph, const hstr* string, hstr** out)
+{
+    if (graph->stringsLen == graph->stringsCap)
+    {
+        u32 newCap = graph->stringsCap * 2;
+        hrealloc(&graph->strings, graph->stringsCap, newCap, FALSE);
+        graph->stringsCap = newCap;
+    }
+    
+    hstr newString;
+    halc_try(hstr_dupe(string, &newString));
+    graph->strings[graph->stringsLen] = newString;
+
+    *out = graph->strings + graph->stringsLen;
+    graph->stringsLen += 1;
+
+    halc_end;
+}
+
+struct s_node* find_node_from_link(struct s_graph* graph, u32 link)
+{
+    if (link > graph->nodesLen)
+    {
+        return NULL;
+    }
+
+    return graph->nodes + link;
+}

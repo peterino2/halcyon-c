@@ -6,14 +6,19 @@
 
 EXTERN_C_BEGIN
 
+typedef char hchar;
+
 struct hstr{
-    char* buffer;
+    hchar* buffer;
     u32 len;
     i32 cap; // a value of 0 means no allocation is associated, a value of -1 means this is statically 
              // allocated, and operations such as resize, or append are illegal
 };
 
 typedef struct hstr hstr;
+
+// checsk if a string contains a substring.
+b8 hstr_contains(const hstr* string, const hstr* search);
 
 // returns true or false if the left hstr equals to the right hstr
 b8 hstr_match(const hstr* left, const hstr* right);
@@ -22,7 +27,7 @@ b8 hstr_match(const hstr* left, const hstr* right);
 void hstr_free(hstr* str);
 
 // prints INTO an existing hstr
-errc hstr_printf(hstr* str, const char* fmt, ...);
+errc hstr_printf(hstr* str, const hchar* fmt, ...);
 
 // empties the string, retaining the current capacity
 void hstr_empty(hstr* str);
@@ -42,8 +47,10 @@ errc hstr_normalize(const hstr* istr, hstr* ostr);
 
 void hstr_init(hstr* str);
 
+errc hstr_dupe(const hstr* left, hstr* out);
+
 // Do not count the null terminator as part of the length
-#define HSTR(X) {(char*) X, sizeof(X)/sizeof(char) - 1, -1}
+#define HSTR(X) {(hchar*) X, sizeof(X)/sizeof(hchar) - 1, -1}
 
 #define arrayCount(X) sizeof(X) / sizeof(X[0])
 

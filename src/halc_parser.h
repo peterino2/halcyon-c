@@ -4,26 +4,78 @@
 #include "halc_errors.h"
 #include "halc_strings.h"
 #include "halc_tokenizer.h"
+#include "halc_allocators.h"
 
 EXTERN_C_BEGIN
 
 struct anode;
 struct s_parser;
+typedef u32 s_link;
 
-struct s_node
+// how should we resolve links?
+
+#define LINK_ENDNODE 0
+#define LABELS_MAP_INITIAL_CAP 32
+
+struct hash_entry
 {
-    struct tokenStream* ts;
-    i32 index;
+    u32 hash;
+    void* value;
 };
 
-// this should be part of the public API
-struct s_graph {
+struct s_label_map
+{
+    struct hash_entry* entries;
+    u32 len;
+    u32 cap;
+};
+
+errc label_map_init(struct s_label_map* map);
+
+errc label_map_insert(struct s_label_map* map, s_link link);
+
+// this should be part of the public API?
+struct s_graph 
+{
+    hstr* strings;
+    u32 stringsLen;
+    u32 stringsCap;
+
+    // fully linked story nodes
     struct s_node* nodes;
-    i32 capacity;
-    i32 len;
+    u32 nodesLen;
+    u32 nodesCap;
+
+    // oh god... I have to make a hashmap
+    struct s_label_map labels;
 };
 
+struct s_choice {
+    const hstr* choiceText;
+    s_link link; // link to another node in the same story
+};
+
+struct s_choices_list {
+    const struct s_choice* choice;
+    u32 len;
+    u32 cap;
+};
+
+struct s_node 
+{
+    const hstr* text; // nullable. if null we are to automatically link to the next one
+    const struct s_choices_list* choices; // nullable
+    s_link link;
+};
+
+errc graph_init(struct s_graph* graph);
 void graph_free(struct s_graph* graph);
+
+errc graph_append(struct s_graph* graph, struct s_node newNode);
+
+errc graph_clone_string(struct s_graph* graph, const hstr* string, hstr** out);
+
+struct s_node* find_node_from_link(struct s_graph* graph, u32 link);
 
 // append-only bump allocator list of children
 //
@@ -35,7 +87,7 @@ void graph_free(struct s_graph* graph);
 // operation: 
 //
 // - node starts being created
-// - node stores end of list as it's start index for it's list of children
+// - node stores end of list as it's start index for new children being created
 // - node writes all of it's children into the list
 // - node then stores the end offset
 // - then the node is done writing and never gets to write to the list index ever again.
@@ -67,11 +119,17 @@ enum ANodeType {
     ANODE_EXPRESSION,
     ANODE_EXTENSION,
     ANODE_GRAPH,
+    ANODE_BADNODE,
     ANODE_INVALID
 };
  
 // index into tokenstream as a token
 typedef i32 anode_token_t;
+
+struct anode_bad_node
+{
+    anode_token_t token;
+};
 
 struct anode_list_alloc {
     i32 entry;
@@ -181,6 +239,8 @@ struct s_parser
 
     i32 tabCount;
 };
+
+// parser operations
 
 EXTERN_C_END
 

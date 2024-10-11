@@ -16,6 +16,31 @@
 // try to convert a given binary buffer into equivalent utf8 code points
 // also converts \r\n into \n
 
+b8 hstr_contains(const hstr* string, const hstr* search)
+{
+    hchar* start = string->buffer;
+    while (start - string->buffer < string->len)
+    {
+        if (string->buffer + string->len - start < search->len)
+            break;
+
+        hstr view = {
+            start,
+            search->len,
+            0,
+        };
+
+        if (hstr_match(&view, search))
+        {
+            return TRUE;
+        }
+
+        start += 1;
+    }
+
+    return FALSE;
+}
+
 // check if two stringviews match
 b8 hstr_match(const hstr* left, const hstr* right)
 {
@@ -110,7 +135,7 @@ errc hstr_normalize(const hstr* istr, hstr* ostr)
                 if(spaceCount % 4 != 0)
                 {
                     *w = 0; // write out a null so we can debug print it
-                    fprintf(stderr, RED("attempted to normalize file with inconsistent file format content normalized so far:") " %s\n", ostr->buffer);
+                    fprintf(stderr, RED("attempted to normalize file with inconsistent file format, inconsistent spacing count for tabbing, we need a tab value of 4 content normalized so far:") " %s\n", ostr->buffer);
                     halc_raise(ERR_INCONSISTENT_FILE_FORMAT);
                 }
 
@@ -203,3 +228,12 @@ errc test_hstr_printf()
     halc_end;
 }
 #endif
+
+errc hstr_dupe(const hstr* left, hstr* out) {
+
+    out->len = left->len;
+    out->cap = left->cap;
+    halloc(out->buffer, left->cap * sizeof(hchar));
+
+    halc_end;
+}

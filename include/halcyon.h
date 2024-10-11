@@ -12,17 +12,20 @@
 extern "C" {
 #endif
 
-// object-like interface, everything here is an opaque function
+// object-like interface, everything here is an opaque pointer
 struct HalcyonRuntime;
 struct HalcyonStory;
 struct HalcyonWorld;
 struct HalcyonInteractor;
 
 // compiler access things (not usually used in runtime), used to drive the debugger, 
+
 // custom tooling, etc..
 struct HalcGraph; // each halcyon file contains a graph associated with it
 struct HalcRegion; // Each graph is part of a region, HalcyonStory contains 
-                   // a list of all the regeions
+                   // a list of all the regions
+                   // a world is a runtime instantiation of a story
+
 struct HalcFacts; // Facts database
 
 // runtime operations
@@ -91,7 +94,6 @@ struct HalcFacts; // Facts database
 // - walk
 // - select choice
 // - install callbacks
-
 
 
 #ifdef __cplusplus

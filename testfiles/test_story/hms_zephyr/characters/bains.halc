@@ -1,0 +1,25 @@
+
+# bains is a simple character
+# he is the coxswain of the ship, 
+# an older man with several interesting scars
+
+[bains_intro]
+$: Before you sits an old man growling and mumbling to himself as he struggles to insert a pin into an old timepiece.
+$: Engrossed yet frustrated by the task he barely notices you until you get close.
+Bains: *Looking up* What do you want, welp?
+    > You seem upset. What's going on?
+        Bains: It's none of your goddamn business.
+        @goto end
+
+    # this pattern is used to break out quests into a different file, 
+    # this way quests can be quite modular.
+
+    # within a single file, goto will go to the end of that graph 
+    # however if the . operator is used it will be used to find a file relative to the root of the 
+    # current region
+
+    # references to labels from another region look something like: @gotoRegion("/bridgeport").characters.cabbage_seller
+    @ifOnce(quests.food_for_the_weak.phase == "investigating food")
+    > The captain's trying to find out who is taking all the good stuff from the food pantry
+        @goto quests.food_for_the_weak.bains_angry
+
