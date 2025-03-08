@@ -348,7 +348,7 @@ static errc test_parser_speed()
     } while(i-- > 0);
     high_resolution_clock::time_point t2 = high_resolution_clock::now();
 
-    duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
+    duration<double> time_span = duration_cast< duration<double> >(t2 - t1);
 
     std::cout << "Time elapsed for test " 
         << TEST_SPEED_ITERATION_COUNT 
