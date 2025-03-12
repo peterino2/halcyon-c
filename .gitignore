@@ -6,3 +6,6 @@ localNodes
 *.pdb
 *.exe
 *.lib
+zig-out/*
+.zig-cache/*
+*.stackdump
